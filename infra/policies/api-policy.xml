@@ -1,0 +1,26 @@
+<!--
+  Portops AI gateway - API-level policy of the key-based `openai` API.
+  Shared LLM core (chaos switch, model routing, token metric, managed identity, backend pool, retry, outbound headers)
+  lives in policy fragments portops-llm-{inbound,backend,outbound,onerror}; the `openai-entra` API reuses the same fragments.
+  Order of execution: product policy (llm-token-limit) -> this policy.
+-->
+<policies>
+    <inbound>
+        <base />
+        <!-- team = product id without the "dept-" prefix; used by the team-enabled check (budget kill switch) -->
+        <set-variable name="team" value="@((context.Product?.Id ?? "none").Replace("dept-", ""))" />
+        <include-fragment fragment-id="portops-team-enabled" />
+        <include-fragment fragment-id="portops-llm-inbound" />
+    </inbound>
+    <backend>
+        <include-fragment fragment-id="portops-llm-backend" />
+    </backend>
+    <outbound>
+        <base />
+        <include-fragment fragment-id="portops-llm-outbound" />
+    </outbound>
+    <on-error>
+        <base />
+        <include-fragment fragment-id="portops-llm-onerror" />
+    </on-error>
+</policies>

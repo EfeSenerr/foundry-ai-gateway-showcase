@@ -1,0 +1,126 @@
+// =====================================================================================
+// Terminal Ops Assistant PoC - observability queries (Log Analytics / KQL)
+// Run in: Log Analytics workspace log-portops-<suffix> > Logs
+// Or:     python observability/run_queries.py [--only <name>] [--list]
+//
+// Blocks start with "// ### <name>". Time range is set with `ago(...)`; adjust as needed.
+// Table/column names depend on the diagnostic setting destination type (resource-specific
+// tables vs AzureDiagnostics). Fallbacks are noted per query - VERIFY against the live workspace.
+// Illustrative list prices (USD per 1M tokens, verify): gpt-4.1-mini 0.40 in / 1.60 out; gpt-4.1 2.00 / 8.00.
+// =====================================================================================
+
+// ### tokens_per_dept
+// Tokens per department from the llm-emit-token-metric policy (namespace 'portops', dimension Department).
+// Workspace-based App Insights stores custom metrics in the AppMetrics table.
+// (In the App Insights "Logs" blade the same data is in `customMetrics` with customDimensions.)
+AppMetrics
+| where TimeGenerated > ago(24h)
+| where Name in ("Total Tokens", "Prompt Tokens", "Completion Tokens")
+| extend Department = tostring(Properties["Department"]), Model = tostring(Properties["Model"])
+| summarize Tokens = sum(Sum) by Department, Name
+| evaluate pivot(Name, sum(Tokens))
+| order by Department asc
+
+// ### tokens_per_dept_customMetrics
+// Same, for the App Insights (classic schema) blade. Run there, not in the workspace.
+// customMetrics
+// | where timestamp > ago(24h)
+// | where name in ("Total Tokens", "Prompt Tokens", "Completion Tokens")
+// | extend Department = tostring(customDimensions["Department"])
+// | summarize Tokens = sum(valueSum) by Department, name
+
+// ### tokens_per_dept_llmlog
+// Tokens per department from the gateway LLM log joined to the gateway log on CorrelationId.
+// Needs diagnostic setting categories GatewayLogs + GatewayLlmLogs and LLM logging enabled on the API diagnostic.
+ApiManagementGatewayLlmLog
+| where TimeGenerated > ago(24h)
+| where isnotempty(CorrelationId) and isnotempty(ModelName)
+| summarize PromptTokens = sum(PromptTokens), CompletionTokens = sum(CompletionTokens),
+            TotalTokens = sum(TotalTokens) by CorrelationId, ModelName
+| join kind=inner (
+    ApiManagementGatewayLogs
+    | where TimeGenerated > ago(24h)
+    | project CorrelationId, ProductId, ApimSubscriptionId, ResponseCode
+  ) on CorrelationId
+| summarize Requests = count(), PromptTokens = sum(PromptTokens),
+            CompletionTokens = sum(CompletionTokens), TotalTokens = sum(TotalTokens)
+          by ProductId, ModelName
+| order by TotalTokens desc
+
+// ### status_over_time
+// Status codes over time per product (APIM product = department).
+ApiManagementGatewayLogs
+| where TimeGenerated > ago(24h)
+| summarize Requests = count() by bin(TimeGenerated, 5m), ProductId, Status = tostring(ResponseCode)
+| order by TimeGenerated asc
+
+// ### throttled_429
+// 429s per department (llm-token-limit rejections).
+ApiManagementGatewayLogs
+| where TimeGenerated > ago(24h)
+| summarize Total = count(), Throttled = countif(ResponseCode == 429) by ProductId
+| extend ThrottledPct = round(100.0 * Throttled / Total, 1)
+| order by Throttled desc
+
+// ### errors_5xx
+// 5xx: ResponseCode (what the client saw) vs BackendResponseCode (what Foundry returned).
+// ResponseCode 5xx + BackendResponseCode empty/0  => produced by the gateway (policy, chaos switch, timeout before backend).
+// ResponseCode 5xx + BackendResponseCode 5xx      => backend (Foundry) error passed through.
+// ResponseCode 5xx + BackendResponseCode 2xx/429  => gateway changed the outcome (retry exhausted, circuit breaker).
+ApiManagementGatewayLogs
+| where TimeGenerated > ago(24h)
+| where ResponseCode >= 500
+| extend Origin = case(isempty(BackendResponseCode) or BackendResponseCode == 0, "gateway",
+                       BackendResponseCode >= 500, "backend", "gateway-transformed")
+| project TimeGenerated, CorrelationId, ProductId, ResponseCode, BackendResponseCode, Origin,
+          TotalTime, BackendTime, LastErrorReason, LastErrorMessage
+| order by TimeGenerated desc
+
+// ### latency_per_model
+// Latency p50/p95 per model (TotalTime = gateway total, BackendTime = Foundry share), in ms.
+ApiManagementGatewayLlmLog
+| where TimeGenerated > ago(24h)
+| where isnotempty(ModelName)
+| distinct CorrelationId, ModelName
+| join kind=inner (ApiManagementGatewayLogs | where TimeGenerated > ago(24h) | where ResponseCode == 200
+                   | project CorrelationId, TotalTime, BackendTime) on CorrelationId
+| summarize Requests = count(),
+            p50_total = percentile(TotalTime, 50), p95_total = percentile(TotalTime, 95),
+            p50_backend = percentile(BackendTime, 50), p95_backend = percentile(BackendTime, 95)
+          by ModelName
+
+// ### request_lookup
+// Look up one request by the apim-request-id response header (= CorrelationId). Replace the GUID.
+let rid = "00000000-0000-0000-0000-000000000000";
+ApiManagementGatewayLogs
+| where TimeGenerated > ago(24h)
+| where CorrelationId == rid
+| project TimeGenerated, CorrelationId, ProductId, ApiId, Method, Url, ResponseCode, BackendResponseCode,
+          TotalTime, BackendTime, BackendId, LastErrorReason, LastErrorMessage
+
+// ### foundry_requests
+// Foundry account diagnostics: status codes and latency (category RequestResponse).
+// Resource-specific table name varies; if this errors, use the AzureDiagnostics variant below.
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceProvider == "MICROSOFT.COGNITIVESERVICES" and Category == "RequestResponse"
+| summarize Requests = count(), p50_ms = percentile(DurationMs, 50), p95_ms = percentile(DurationMs, 95)
+          by bin(TimeGenerated, 15m), ResultSignature, OperationName
+| order by TimeGenerated desc
+
+// ### cost_per_dept
+// Cost estimate per department = tokens x illustrative list price (verify prices before quoting).
+// Uses the metric 'Model' dimension; price per 1M tokens (input, output).
+let prices = datatable(Model:string, PriceIn:double, PriceOut:double)
+  ["gpt-4.1-mini", 0.40, 1.60, "gpt-4.1", 2.00, 8.00];
+AppMetrics
+| where TimeGenerated > ago(24h)
+| where Name in ("Prompt Tokens", "Completion Tokens")
+| extend Department = tostring(Properties["Department"]), ModelRaw = tostring(Properties["Model"])
+| extend Model = iff(ModelRaw startswith "gpt-4.1-mini", "gpt-4.1-mini", iff(ModelRaw startswith "gpt-4.1", "gpt-4.1", ModelRaw))
+| summarize Prompt = sumif(Sum, Name == "Prompt Tokens"), Completion = sumif(Sum, Name == "Completion Tokens")
+          by Department, Model
+| join kind=leftouter prices on Model
+| extend EstCostUSD = round(Prompt / 1e6 * PriceIn + Completion / 1e6 * PriceOut, 4)
+| project Department, Model, Prompt, Completion, EstCostUSD
+| order by EstCostUSD desc

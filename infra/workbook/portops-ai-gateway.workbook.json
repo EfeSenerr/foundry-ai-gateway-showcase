@@ -1,0 +1,1076 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 9,
+      "name": "parameters",
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "p-time",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time range",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 14400000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 900000
+                },
+                {
+                  "durationMs": 3600000
+                },
+                {
+                  "durationMs": 14400000
+                },
+                {
+                  "durationMs": 43200000
+                },
+                {
+                  "durationMs": 86400000
+                },
+                {
+                  "durationMs": 259200000
+                },
+                {
+                  "durationMs": 604800000
+                }
+              ],
+              "allowCustom": true
+            }
+          },
+          {
+            "id": "p-dept",
+            "version": "KqlParameterItem/1.0",
+            "name": "Department",
+            "label": "Department",
+            "type": 2,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "ApiManagementGatewayLogs\n| where isnotempty(ProductId)\n| distinct ProductId\n| union (datatable(ProductId:string)['dept-ops','dept-it','dept-cs'])\n| distinct ProductId\n| order by ProductId asc",
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "timeContext": {
+              "durationMs": 604800000
+            },
+            "defaultValue": "value::all",
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces",
+            "crossComponentResources": [
+              "__WORKSPACE_ID__"
+            ]
+          },
+          {
+            "id": "p-rid",
+            "version": "KqlParameterItem/1.0",
+            "name": "RequestId",
+            "label": "apim-request-id",
+            "type": 1,
+            "isRequired": false,
+            "value": "",
+            "description": "Paste the apim-request-id response header (section: Request lookup)"
+          }
+        ],
+        "style": "pills",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      }
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "# PortOps AI Gateway \u2013 Cost & Operations\nLive view of the Azure API Management **AI Gateway** in front of Microsoft Foundry. Gateway logs and token metrics arrive in Log Analytics ~2\u20135 min after a call. Departments = APIM products (`dept-ops`, `dept-it`, `dept-cs`). **Costs below are estimates from an illustrative list price** (gpt-4.1-mini $0.40 in / $1.60 out, gpt-4.1 $2.00 / $8.00 per 1M tokens); the actual bill is in Cost Management."
+      },
+      "name": "text-1"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 1. Key numbers"
+      },
+      "name": "text-2"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let prices = datatable(Model:string, PriceIn:double, PriceOut:double)\n  [\"gpt-4.1-mini\", 0.40, 1.60, \"gpt-4.1\", 2.00, 8.00];\nlet tok = AppMetrics\n| extend Department = tostring(Properties[\"Department\"]), ModelRaw = tostring(Properties[\"Model\"])\n| where Department in ({Department})\n| where Name == \"Total Tokens\" | summarize v = sum(Sum);\nlet cost = AppMetrics\n| extend Department = tostring(Properties[\"Department\"]), ModelRaw = tostring(Properties[\"Model\"])\n| where Department in ({Department})\n| where Name in (\"Prompt Tokens\", \"Completion Tokens\")\n| extend Model = iff(ModelRaw startswith \"gpt-4.1-mini\", \"gpt-4.1-mini\", iff(ModelRaw startswith \"gpt-4.1\", \"gpt-4.1\", ModelRaw))\n| summarize Prompt = sumif(Sum, Name == \"Prompt Tokens\"), Completion = sumif(Sum, Name == \"Completion Tokens\") by Model\n| join kind=leftouter prices on Model\n| summarize v = sum(Prompt / 1e6 * PriceIn + Completion / 1e6 * PriceOut);\nlet gw = ApiManagementGatewayLogs\n| where ProductId in ({Department})\n| summarize req = count(), r429 = countif(ResponseCode == 429), r5xx = countif(ResponseCode >= 500);\nunion (gw | project Metric = \"1 Requests\", Value = todouble(req)),\n      (gw | project Metric = \"4 HTTP 429 (throttled)\", Value = todouble(r429)),\n      (gw | project Metric = \"5 HTTP 5xx\", Value = todouble(r5xx)),\n      (tok | project Metric = \"2 Total tokens\", Value = todouble(v)),\n      (cost | project Metric = \"3 Est. cost USD (illustrative)\", Value = todouble(round(v, 4)))\n| order by Metric asc\n| extend Metric = substring(Metric, 2)",
+        "size": 4,
+        "title": "Requests \u00b7 tokens \u00b7 est. cost \u00b7 429 \u00b7 5xx",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {
+            "columnMatch": "Metric",
+            "formatter": 1
+          },
+          "leftContent": {
+            "columnMatch": "Value",
+            "formatter": 12,
+            "formatOptions": {
+              "palette": "auto"
+            },
+            "numberFormat": {
+              "unit": 17,
+              "options": {
+                "style": "decimal",
+                "maximumFractionDigits": 2
+              }
+            }
+          },
+          "showBorder": true,
+          "size": "auto"
+        }
+      },
+      "name": "kpi"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 2. Tokens per department and model"
+      },
+      "name": "text-4"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AppMetrics\n| extend Department = tostring(Properties[\"Department\"]), ModelRaw = tostring(Properties[\"Model\"])\n| where Department in ({Department})\n| where Name == \"Total Tokens\"\n| summarize Tokens = sum(Sum) by bin(TimeGenerated, 5m), Department\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Total tokens over time per department",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "timechart",
+        "chartSettings": {
+          "xAxis": "TimeGenerated",
+          "yAxis": [
+            "Tokens"
+          ],
+          "group": "Department",
+          "createOtherGroup": 0
+        }
+      },
+      "name": "q-5"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AppMetrics\n| extend Department = tostring(Properties[\"Department\"]), ModelRaw = tostring(Properties[\"Model\"])\n| where Department in ({Department})\n| where Name in (\"Prompt Tokens\", \"Completion Tokens\")\n| summarize Tokens = sum(Sum) by Department, Name\n| order by Department asc",
+        "size": 1,
+        "title": "Tokens per department (prompt vs completion)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "barchart",
+        "chartSettings": {
+          "xAxis": "Department",
+          "yAxis": [
+            "Tokens"
+          ],
+          "group": "Name"
+        }
+      },
+      "name": "q-6",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AppMetrics\n| extend Department = tostring(Properties[\"Department\"]), ModelRaw = tostring(Properties[\"Model\"])\n| where Department in ({Department})\n| where Name == \"Total Tokens\"\n| extend Model = iff(ModelRaw startswith \"gpt-4.1-mini\", \"gpt-4.1-mini\", iff(ModelRaw startswith \"gpt-4.1\", \"gpt-4.1\", ModelRaw))\n| summarize Tokens = sum(Sum) by Model\n| order by Tokens desc",
+        "size": 1,
+        "title": "Tokens per model",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "barchart",
+        "chartSettings": {
+          "xAxis": "Model",
+          "yAxis": [
+            "Tokens"
+          ]
+        }
+      },
+      "name": "q-7",
+      "customWidth": "50"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 3. Estimated cost per department (chargeback)"
+      },
+      "name": "text-8"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "_Estimate = tokens \u00d7 illustrative list price. The **actual** bill: Cost Management \u2192 Cost analysis \u2192 group by tag `project` (and by resource / meter). Tokens are the per-department driver; the `project` tag is the per-Foundry-project chargeback key._"
+      },
+      "name": "text-9"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let prices = datatable(Model:string, PriceIn:double, PriceOut:double)\n  [\"gpt-4.1-mini\", 0.40, 1.60, \"gpt-4.1\", 2.00, 8.00];\nAppMetrics\n| extend Department = tostring(Properties[\"Department\"]), ModelRaw = tostring(Properties[\"Model\"])\n| where Department in ({Department})\n| where Name in (\"Prompt Tokens\", \"Completion Tokens\")\n| extend Model = iff(ModelRaw startswith \"gpt-4.1-mini\", \"gpt-4.1-mini\", iff(ModelRaw startswith \"gpt-4.1\", \"gpt-4.1\", ModelRaw))\n| summarize Prompt = sumif(Sum, Name == \"Prompt Tokens\"), Completion = sumif(Sum, Name == \"Completion Tokens\") by Department, Model\n| join kind=leftouter prices on Model\n| extend EstCostUSD = round(Prompt / 1e6 * PriceIn + Completion / 1e6 * PriceOut, 4)\n| project Department, Model, Prompt, Completion, EstCostUSD\n| order by EstCostUSD desc",
+        "size": 1,
+        "title": "Estimated cost per department and model (USD, illustrative)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "EstCostUSD",
+              "formatter": 8,
+              "formatOptions": {
+                "palette": "greenRed"
+              }
+            }
+          ]
+        }
+      },
+      "name": "q-10",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let prices = datatable(Model:string, PriceIn:double, PriceOut:double)\n  [\"gpt-4.1-mini\", 0.40, 1.60, \"gpt-4.1\", 2.00, 8.00];\nAppMetrics\n| extend Department = tostring(Properties[\"Department\"]), ModelRaw = tostring(Properties[\"Model\"])\n| where Department in ({Department})\n| where Name in (\"Prompt Tokens\", \"Completion Tokens\")\n| extend Model = iff(ModelRaw startswith \"gpt-4.1-mini\", \"gpt-4.1-mini\", iff(ModelRaw startswith \"gpt-4.1\", \"gpt-4.1\", ModelRaw))\n| summarize Prompt = sumif(Sum, Name == \"Prompt Tokens\"), Completion = sumif(Sum, Name == \"Completion Tokens\") by Department, Model\n| join kind=leftouter prices on Model\n| extend EstCostUSD = round(Prompt / 1e6 * PriceIn + Completion / 1e6 * PriceOut, 4)\n| summarize EstCostUSD = sum(EstCostUSD) by Department\n| order by EstCostUSD desc",
+        "size": 1,
+        "title": "Estimated cost per department (USD)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "barchart",
+        "chartSettings": {
+          "xAxis": "Department",
+          "yAxis": [
+            "EstCostUSD"
+          ]
+        }
+      },
+      "name": "q-11",
+      "customWidth": "50"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 4. Status codes, throttling and errors"
+      },
+      "name": "text-12"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLogs\n| where ProductId in ({Department})\n| summarize Requests = count() by bin(TimeGenerated, 5m), Series = strcat(ProductId, \" \", tostring(ResponseCode))\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Requests by status code over time per department",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "timechart",
+        "chartSettings": {
+          "xAxis": "TimeGenerated",
+          "yAxis": [
+            "Requests"
+          ],
+          "group": "Series",
+          "createOtherGroup": 0
+        }
+      },
+      "name": "q-13"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLogs\n| where ProductId in ({Department})\n| summarize Total = count(), Throttled = countif(ResponseCode == 429) by ProductId\n| extend ThrottledPct = round(100.0 * Throttled / Total, 1)\n| order by Throttled desc",
+        "size": 1,
+        "title": "429 throttling per department (llm-token-limit)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "ThrottledPct",
+              "formatter": 8,
+              "formatOptions": {
+                "palette": "orange"
+              }
+            }
+          ]
+        }
+      },
+      "name": "q-14",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLogs\n| where ProductId in ({Department})\n| where ResponseCode >= 500\n| extend Chaos = ResponseHeaders contains \"x-portops-chaos\"\n| extend Origin = case(Chaos, \"gateway (chaos switch)\", isempty(BackendResponseCode) or BackendResponseCode == 0, \"gateway (policy/timeout)\", BackendResponseCode >= 500, \"backend (Foundry)\", \"gateway-transformed\")\n| summarize Errors = count() by Origin, ProductId\n| order by Errors desc",
+        "size": 1,
+        "title": "5xx origin: gateway vs backend",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "barchart",
+        "chartSettings": {
+          "xAxis": "Origin",
+          "yAxis": [
+            "Errors"
+          ],
+          "group": "ProductId"
+        }
+      },
+      "name": "q-15",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLogs\n| where ProductId in ({Department})\n| where ResponseCode >= 500\n| extend Origin = case(ResponseHeaders contains \"x-portops-chaos\", \"gateway (chaos switch)\", isempty(BackendResponseCode) or BackendResponseCode == 0, \"gateway (policy/timeout)\", BackendResponseCode >= 500, \"backend (Foundry)\", \"gateway-transformed\")\n| project TimeGenerated, CorrelationId, ProductId, ResponseCode, BackendResponseCode, Origin, TotalTime, BackendTime, LastErrorReason, LastErrorMessage\n| order by TimeGenerated desc\n| take 50",
+        "size": 1,
+        "title": "5xx detail (ResponseCode = what the client saw, BackendResponseCode = what Foundry returned)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table"
+      },
+      "name": "q-16"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 5. Latency (successful calls, ms)"
+      },
+      "name": "text-17"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLlmLog\n| where isnotempty(ModelName)\n| distinct CorrelationId, ModelName\n| join kind=inner (ApiManagementGatewayLogs | where ResponseCode == 200 | where ProductId in ({Department})\n                   | project TimeGenerated, CorrelationId, ProductId, TotalTime, BackendTime) on CorrelationId\n| summarize Requests = count(), p50_total = percentile(TotalTime, 50), p95_total = percentile(TotalTime, 95), p50_backend = percentile(BackendTime, 50), p95_backend = percentile(BackendTime, 95) by ModelName\n| order by Requests desc",
+        "size": 1,
+        "title": "p50 / p95 per model",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table"
+      },
+      "name": "q-18",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLlmLog\n| where isnotempty(ModelName)\n| distinct CorrelationId, ModelName\n| join kind=inner (ApiManagementGatewayLogs | where ResponseCode == 200 | where ProductId in ({Department})\n                   | project TimeGenerated, CorrelationId, ProductId, TotalTime, BackendTime) on CorrelationId\n| summarize Requests = count(), p50_total = percentile(TotalTime, 50), p95_total = percentile(TotalTime, 95), p50_backend = percentile(BackendTime, 50), p95_backend = percentile(BackendTime, 95) by ProductId\n| order by Requests desc",
+        "size": 1,
+        "title": "p50 / p95 per department",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table"
+      },
+      "name": "q-19",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLlmLog\n| where isnotempty(ModelName)\n| distinct CorrelationId, ModelName\n| join kind=inner (ApiManagementGatewayLogs | where ResponseCode == 200 | where ProductId in ({Department})\n                   | project TimeGenerated, CorrelationId, ProductId, TotalTime, BackendTime) on CorrelationId\n| summarize p95 = percentile(TotalTime, 95) by bin(TimeGenerated, 5m), ProductId\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "p95 total latency over time per department",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "timechart",
+        "chartSettings": {
+          "xAxis": "TimeGenerated",
+          "yAxis": [
+            "p95"
+          ],
+          "group": "ProductId",
+          "createOtherGroup": 0
+        }
+      },
+      "name": "q-20"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 6. Request lookup (paste an apim-request-id)"
+      },
+      "name": "text-21"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "Every response carries an `apim-request-id` header. Paste it into the **apim-request-id** parameter above."
+      },
+      "name": "text-22"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let rid = \"{RequestId}\";\nApiManagementGatewayLogs\n| where CorrelationId == rid\n| project TimeGenerated, CorrelationId, ProductId, ApimSubscriptionId, ApiId, Method, Url, ResponseCode, BackendResponseCode, TotalTime, BackendTime, BackendId, LastErrorReason, LastErrorMessage, ResponseHeaders",
+        "size": 1,
+        "title": "Gateway log row",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table"
+      },
+      "name": "lookup-gw",
+      "conditionalVisibility": {
+        "parameterName": "RequestId",
+        "comparison": "isNotEqualTo",
+        "value": ""
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let rid = \"{RequestId}\";\nApiManagementGatewayLlmLog\n| where CorrelationId == rid\n| project TimeGenerated, CorrelationId, ModelName, DeploymentName, PromptTokens, CompletionTokens, TotalTokens, IsStreamCompletion, RequestMessages, ResponseMessages",
+        "size": 1,
+        "title": "Matching LLM log (tokens, model, deployment)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table"
+      },
+      "name": "lookup-llm",
+      "conditionalVisibility": {
+        "parameterName": "RequestId",
+        "comparison": "isNotEqualTo",
+        "value": ""
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let rid = \"{RequestId}\";\nlet gw = ApiManagementGatewayLogs | where CorrelationId == rid | project gwTime = TimeGenerated, gwUrl = Url;\nAzureDiagnostics\n| where ResourceProvider == \"MICROSOFT.COGNITIVESERVICES\" and Category == \"RequestResponse\"\n| extend p = parse_json(properties_s)\n| where CorrelationId == rid or TimeGenerated between ((toscalar(gw | project gwTime) - 10s) .. (toscalar(gw | project gwTime) + 30s))\n| project TimeGenerated, CorrelationId, OperationName, ResultSignature, DurationMs, Model = tostring(p.modelName), PromptTokens = toint(p.promptTokens), CompletionTokens = toint(p.completionTokens)\n| order by TimeGenerated asc",
+        "size": 1,
+        "title": "Foundry diagnostic rows (same CorrelationId, or the same call by time/deployment)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table"
+      },
+      "name": "lookup-foundry",
+      "conditionalVisibility": {
+        "parameterName": "RequestId",
+        "comparison": "isNotEqualTo",
+        "value": ""
+      }
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 7. Foundry account (aif-portops-__SUFFIX__) diagnostics"
+      },
+      "name": "text-26"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AzureDiagnostics\n| where ResourceProvider == \"MICROSOFT.COGNITIVESERVICES\" and Category == \"RequestResponse\"\n| extend p = parse_json(properties_s)\n| where tostring(p.apiName) != \"Azure AI Projects API\"\n| summarize Requests = count() by bin(TimeGenerated, 5m), Status = tostring(ResultSignature)\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Foundry requests by status code",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "timechart",
+        "chartSettings": {
+          "xAxis": "TimeGenerated",
+          "yAxis": [
+            "Requests"
+          ],
+          "group": "Status",
+          "createOtherGroup": 0
+        }
+      },
+      "name": "q-27"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AzureDiagnostics\n| where ResourceProvider == \"MICROSOFT.COGNITIVESERVICES\" and Category == \"RequestResponse\"\n| extend p = parse_json(properties_s)\n| where tostring(p.apiName) != \"Azure AI Projects API\"\n| summarize Requests = count(), p50_ms = percentile(DurationMs, 50), p95_ms = percentile(DurationMs, 95) by OperationName, Model = tostring(p.modelName)\n| order by Requests desc",
+        "size": 1,
+        "title": "Foundry latency per operation (ms)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table"
+      },
+      "name": "q-28",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AzureDiagnostics\n| where ResourceProvider == \"MICROSOFT.COGNITIVESERVICES\" and Category == \"RequestResponse\"\n| extend p = parse_json(properties_s)\n| where tostring(p.apiName) != \"Azure AI Projects API\"\n| summarize Requests = count(), PromptTokens = sum(toint(p.promptTokens)), CompletionTokens = sum(toint(p.completionTokens)) by Model = tostring(p.modelName)\n| where isnotempty(Model)",
+        "size": 1,
+        "title": "Foundry-side token usage per model (what the backend actually served)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table"
+      },
+      "name": "q-29",
+      "customWidth": "50"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 8. Per user and team (Entra API)"
+      },
+      "name": "text-30"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "Calls through `/entra/openai` carry the signed-in **User** and **Team** (Entra group) as metric dimensions. Key-based department calls have no user and show up as `(department key - no user)`. Costs are illustrative estimates."
+      },
+      "name": "text-31"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let prices = datatable(Model:string, PriceIn:double, PriceOut:double)\n  [\"gpt-4.1-mini\", 0.40, 1.60, \"gpt-4.1\", 2.00, 8.00];\nAppMetrics\n| where Name in (\"Prompt Tokens\", \"Completion Tokens\", \"Total Tokens\")\n| extend ModelRaw = tostring(Properties[\"Model\"])\n| extend Model = iff(ModelRaw startswith \"gpt-4.1-mini\", \"gpt-4.1-mini\", iff(ModelRaw startswith \"gpt-4.1\", \"gpt-4.1\", ModelRaw))\n| extend Team = iff(isnotempty(tostring(Properties[\"Team\"])), tostring(Properties[\"Team\"]), replace_string(tostring(Properties[\"Department\"]), \"dept-\", \"\"))\n| extend User = iff(isnotempty(tostring(Properties[\"User\"])), tostring(Properties[\"User\"]), \"(department key - no user)\")\n| extend ClientApp = case(isnotempty(tostring(Properties[\"ClientApp\"])), tostring(Properties[\"ClientApp\"]), isnotempty(tostring(Properties[\"Subscription ID\"])), tostring(Properties[\"Subscription ID\"]), \"(unknown)\")\n| summarize Prompt = sumif(Sum, Name == \"Prompt Tokens\"), Completion = sumif(Sum, Name == \"Completion Tokens\"), Total = sumif(Sum, Name == \"Total Tokens\") by Team, Model\n| join kind=leftouter prices on Model\n| extend EstCostUSD = round(Prompt / 1e6 * coalesce(PriceIn, 0.40) + Completion / 1e6 * coalesce(PriceOut, 1.60), 4)\n| summarize Prompt = sum(Prompt), Completion = sum(Completion), Total = sum(Total), EstCostUSD = round(sum(EstCostUSD), 4) by Team\n| order by EstCostUSD desc",
+        "size": 1,
+        "title": "Tokens and est. cost per team",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "EstCostUSD",
+              "formatter": 8,
+              "formatOptions": {
+                "palette": "greenRed"
+              }
+            }
+          ]
+        }
+      },
+      "name": "user-team",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let prices = datatable(Model:string, PriceIn:double, PriceOut:double)\n  [\"gpt-4.1-mini\", 0.40, 1.60, \"gpt-4.1\", 2.00, 8.00];\nAppMetrics\n| where Name in (\"Prompt Tokens\", \"Completion Tokens\", \"Total Tokens\")\n| extend ModelRaw = tostring(Properties[\"Model\"])\n| extend Model = iff(ModelRaw startswith \"gpt-4.1-mini\", \"gpt-4.1-mini\", iff(ModelRaw startswith \"gpt-4.1\", \"gpt-4.1\", ModelRaw))\n| extend Team = iff(isnotempty(tostring(Properties[\"Team\"])), tostring(Properties[\"Team\"]), replace_string(tostring(Properties[\"Department\"]), \"dept-\", \"\"))\n| extend User = iff(isnotempty(tostring(Properties[\"User\"])), tostring(Properties[\"User\"]), \"(department key - no user)\")\n| extend ClientApp = case(isnotempty(tostring(Properties[\"ClientApp\"])), tostring(Properties[\"ClientApp\"]), isnotempty(tostring(Properties[\"Subscription ID\"])), tostring(Properties[\"Subscription ID\"]), \"(unknown)\")\n| where User != \"(department key - no user)\"\n| summarize Prompt = sumif(Sum, Name == \"Prompt Tokens\"), Completion = sumif(Sum, Name == \"Completion Tokens\"), Total = sumif(Sum, Name == \"Total Tokens\") by User, Team, Model\n| join kind=leftouter prices on Model\n| extend EstCostUSD = round(Prompt / 1e6 * coalesce(PriceIn, 0.40) + Completion / 1e6 * coalesce(PriceOut, 1.60), 4)\n| summarize Prompt = sum(Prompt), Completion = sum(Completion), Total = sum(Total), EstCostUSD = round(sum(EstCostUSD), 4) by User, Team\n| order by Total desc\n| take 20",
+        "size": 1,
+        "title": "Top users by tokens (est. cost, USD)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "EstCostUSD",
+              "formatter": 8,
+              "formatOptions": {
+                "palette": "greenRed"
+              }
+            }
+          ]
+        }
+      },
+      "name": "user-top",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AppMetrics\n| where Name in (\"Prompt Tokens\", \"Completion Tokens\", \"Total Tokens\")\n| extend ModelRaw = tostring(Properties[\"Model\"])\n| extend Model = iff(ModelRaw startswith \"gpt-4.1-mini\", \"gpt-4.1-mini\", iff(ModelRaw startswith \"gpt-4.1\", \"gpt-4.1\", ModelRaw))\n| extend Team = iff(isnotempty(tostring(Properties[\"Team\"])), tostring(Properties[\"Team\"]), replace_string(tostring(Properties[\"Department\"]), \"dept-\", \"\"))\n| extend User = iff(isnotempty(tostring(Properties[\"User\"])), tostring(Properties[\"User\"]), \"(department key - no user)\")\n| extend ClientApp = case(isnotempty(tostring(Properties[\"ClientApp\"])), tostring(Properties[\"ClientApp\"]), isnotempty(tostring(Properties[\"Subscription ID\"])), tostring(Properties[\"Subscription ID\"]), \"(unknown)\")\n| where Name == \"Total Tokens\" and User != \"(department key - no user)\"\n| summarize Tokens = sum(Sum) by bin(TimeGenerated, 5m), User\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Tokens over time per user (Entra API)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "timechart",
+        "chartSettings": {
+          "xAxis": "TimeGenerated",
+          "yAxis": [
+            "Tokens"
+          ],
+          "group": "User",
+          "createOtherGroup": 0
+        }
+      },
+      "name": "user-time"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 9. Per calling app / agent"
+      },
+      "name": "text-35"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "`ClientApp` = the Entra application id (`azp`) of the caller on the Entra API; for key-based calls it falls back to the APIM subscription id (one per department/team)."
+      },
+      "name": "text-36"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let prices = datatable(Model:string, PriceIn:double, PriceOut:double)\n  [\"gpt-4.1-mini\", 0.40, 1.60, \"gpt-4.1\", 2.00, 8.00];\nAppMetrics\n| where Name in (\"Prompt Tokens\", \"Completion Tokens\", \"Total Tokens\")\n| extend ModelRaw = tostring(Properties[\"Model\"])\n| extend Model = iff(ModelRaw startswith \"gpt-4.1-mini\", \"gpt-4.1-mini\", iff(ModelRaw startswith \"gpt-4.1\", \"gpt-4.1\", ModelRaw))\n| extend Team = iff(isnotempty(tostring(Properties[\"Team\"])), tostring(Properties[\"Team\"]), replace_string(tostring(Properties[\"Department\"]), \"dept-\", \"\"))\n| extend User = iff(isnotempty(tostring(Properties[\"User\"])), tostring(Properties[\"User\"]), \"(department key - no user)\")\n| extend ClientApp = case(isnotempty(tostring(Properties[\"ClientApp\"])), tostring(Properties[\"ClientApp\"]), isnotempty(tostring(Properties[\"Subscription ID\"])), tostring(Properties[\"Subscription ID\"]), \"(unknown)\")\n| summarize Prompt = sumif(Sum, Name == \"Prompt Tokens\"), Completion = sumif(Sum, Name == \"Completion Tokens\"), Total = sumif(Sum, Name == \"Total Tokens\") by ClientApp, Team, Model\n| join kind=leftouter prices on Model\n| extend EstCostUSD = round(Prompt / 1e6 * coalesce(PriceIn, 0.40) + Completion / 1e6 * coalesce(PriceOut, 1.60), 4)\n| summarize Prompt = sum(Prompt), Completion = sum(Completion), Total = sum(Total), EstCostUSD = round(sum(EstCostUSD), 4) by ClientApp, Team\n| order by Total desc",
+        "size": 1,
+        "title": "Tokens and est. cost per calling app",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "EstCostUSD",
+              "formatter": 8,
+              "formatOptions": {
+                "palette": "greenRed"
+              }
+            }
+          ]
+        }
+      },
+      "name": "app-table",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AppMetrics\n| where Name in (\"Prompt Tokens\", \"Completion Tokens\", \"Total Tokens\")\n| extend ModelRaw = tostring(Properties[\"Model\"])\n| extend Model = iff(ModelRaw startswith \"gpt-4.1-mini\", \"gpt-4.1-mini\", iff(ModelRaw startswith \"gpt-4.1\", \"gpt-4.1\", ModelRaw))\n| extend Team = iff(isnotempty(tostring(Properties[\"Team\"])), tostring(Properties[\"Team\"]), replace_string(tostring(Properties[\"Department\"]), \"dept-\", \"\"))\n| extend User = iff(isnotempty(tostring(Properties[\"User\"])), tostring(Properties[\"User\"]), \"(department key - no user)\")\n| extend ClientApp = case(isnotempty(tostring(Properties[\"ClientApp\"])), tostring(Properties[\"ClientApp\"]), isnotempty(tostring(Properties[\"Subscription ID\"])), tostring(Properties[\"Subscription ID\"]), \"(unknown)\")\n| where Name == \"Total Tokens\"\n| summarize Tokens = sum(Sum) by ClientApp\n| order by Tokens desc",
+        "size": 1,
+        "title": "Tokens per calling app",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "barchart",
+        "chartSettings": {
+          "xAxis": "ClientApp",
+          "yAxis": [
+            "Tokens"
+          ]
+        }
+      },
+      "name": "app-bar",
+      "customWidth": "50"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 10. MCP tool calls (through the gateway)"
+      },
+      "name": "text-39"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AppMetrics\n| where Name == \"McpToolCalls\"\n| extend Team = tostring(Properties[\"Team\"]), Tool = tostring(Properties[\"Tool\"]), Result = tostring(Properties[\"Result\"]), ClientApp = tostring(Properties[\"ClientApp\"])\n| summarize Calls = sum(Sum) by Team, Tool, Result\n| order by Team asc, Calls desc",
+        "size": 1,
+        "title": "Tool calls per team and tool (allowed vs blocked)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "Result",
+              "formatter": 18,
+              "formatOptions": {
+                "thresholdsOptions": "colors",
+                "thresholdsGrid": [
+                  {
+                    "operator": "==",
+                    "thresholdValue": "blocked",
+                    "representation": "redBright",
+                    "text": "{0}"
+                  },
+                  {
+                    "operator": "Default",
+                    "thresholdValue": null,
+                    "representation": "green",
+                    "text": "{0}"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "name": "mcp-table",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AppMetrics\n| where Name == \"McpToolCalls\"\n| extend Team = tostring(Properties[\"Team\"]), Tool = tostring(Properties[\"Tool\"]), Result = tostring(Properties[\"Result\"]), ClientApp = tostring(Properties[\"ClientApp\"])\n| summarize Calls = sum(Sum) by Team, Result\n| order by Team asc",
+        "size": 1,
+        "title": "Allowed vs blocked calls per team",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "barchart",
+        "chartSettings": {
+          "xAxis": "Team",
+          "yAxis": [
+            "Calls"
+          ],
+          "group": "Result"
+        }
+      },
+      "name": "mcp-bar",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AppMetrics\n| where Name == \"McpToolCalls\"\n| extend Team = tostring(Properties[\"Team\"]), Tool = tostring(Properties[\"Tool\"]), Result = tostring(Properties[\"Result\"]), ClientApp = tostring(Properties[\"ClientApp\"])\n| summarize Calls = sum(Sum) by bin(TimeGenerated, 5m), Result\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Tool calls over time (allowed vs blocked)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "timechart",
+        "chartSettings": {
+          "xAxis": "TimeGenerated",
+          "yAxis": [
+            "Calls"
+          ],
+          "group": "Result",
+          "createOtherGroup": 0
+        }
+      },
+      "name": "mcp-time"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AppMetrics\n| where Name == \"McpToolCalls\"\n| extend Team = tostring(Properties[\"Team\"]), Tool = tostring(Properties[\"Tool\"]), Result = tostring(Properties[\"Result\"]), ClientApp = tostring(Properties[\"ClientApp\"])\n| where Result == \"blocked\"\n| summarize Calls = sum(Sum), LastSeen = max(TimeGenerated) by Team, Tool\n| order by LastSeen desc",
+        "size": 1,
+        "title": "Blocked tool calls (team, tool, count, last seen)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table"
+      },
+      "name": "mcp-blocked"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 11. Blocked requests by reason"
+      },
+      "name": "text-44"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "Derived by heuristics from the gateway log: **401** on `openai-entra` = no/invalid Entra token (`validate-azure-ad-token`); **403 + LastErrorReason `OpenAITokenQuotaExceeded`** = monthly team/user quota exhausted; **403 on `openai` with no policy error** = team kill switch (`TeamBudgetExhausted`, set by the budget enforcer); **403 on `mcp-*` + header `x-portops-mcp-result=wrong-team`** = team key used on another team's MCP path; **401 on `mcp-*`** = missing/invalid MCP key; **429** = tokens-per-minute limit (`OpenAITokenLimitExceeded`). Tool-level blocks are JSON-RPC errors (HTTP 200) - see section 10."
+      },
+      "name": "text-45"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLogs\n| where ResponseCode in (401, 403, 429)\n| extend McpResult = tostring(parse_json(ResponseHeaders)[\"x-portops-mcp-result\"])\n| extend Reason = case(\n    ApiId startswith \"mcp-\" and ResponseCode == 401, \"401 MCP: missing/invalid team key\",\n    ApiId startswith \"mcp-\" and ResponseCode == 403 and McpResult == \"wrong-team\", \"403 MCP: wrong team for this MCP path\",\n    ApiId startswith \"mcp-\" and ResponseCode == 403, \"403 MCP: forbidden (other)\",\n    ResponseCode == 401, \"401 Entra: no/invalid token\",\n    ResponseCode == 403 and LastErrorReason == \"OpenAITokenQuotaExceeded\", \"403 quota exhausted (team/user)\",\n    ResponseCode == 403 and ApiId == \"openai\" and isempty(LastErrorReason), \"403 TeamBudgetExhausted (kill switch)\",\n    ResponseCode == 429, \"429 TPM exceeded (rate limit)\",\n    strcat(tostring(ResponseCode), \" other\"))\n| summarize Requests = count() by Reason\n| order by Requests desc",
+        "size": 1,
+        "title": "Blocked requests by reason",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "barchart",
+        "chartSettings": {
+          "xAxis": "Reason",
+          "yAxis": [
+            "Requests"
+          ]
+        }
+      },
+      "name": "blk-reason",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLogs\n| where ResponseCode in (401, 403, 429)\n| extend McpResult = tostring(parse_json(ResponseHeaders)[\"x-portops-mcp-result\"])\n| extend Reason = case(\n    ApiId startswith \"mcp-\" and ResponseCode == 401, \"401 MCP: missing/invalid team key\",\n    ApiId startswith \"mcp-\" and ResponseCode == 403 and McpResult == \"wrong-team\", \"403 MCP: wrong team for this MCP path\",\n    ApiId startswith \"mcp-\" and ResponseCode == 403, \"403 MCP: forbidden (other)\",\n    ResponseCode == 401, \"401 Entra: no/invalid token\",\n    ResponseCode == 403 and LastErrorReason == \"OpenAITokenQuotaExceeded\", \"403 quota exhausted (team/user)\",\n    ResponseCode == 403 and ApiId == \"openai\" and isempty(LastErrorReason), \"403 TeamBudgetExhausted (kill switch)\",\n    ResponseCode == 429, \"429 TPM exceeded (rate limit)\",\n    strcat(tostring(ResponseCode), \" other\"))\n| summarize Requests = count() by bin(TimeGenerated, 5m), Reason\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Blocked requests over time by reason",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "timechart",
+        "chartSettings": {
+          "xAxis": "TimeGenerated",
+          "yAxis": [
+            "Requests"
+          ],
+          "group": "Reason",
+          "createOtherGroup": 0
+        }
+      },
+      "name": "blk-time"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLogs\n| where ResponseCode in (401, 403, 429)\n| extend McpResult = tostring(parse_json(ResponseHeaders)[\"x-portops-mcp-result\"])\n| extend Reason = case(\n    ApiId startswith \"mcp-\" and ResponseCode == 401, \"401 MCP: missing/invalid team key\",\n    ApiId startswith \"mcp-\" and ResponseCode == 403 and McpResult == \"wrong-team\", \"403 MCP: wrong team for this MCP path\",\n    ApiId startswith \"mcp-\" and ResponseCode == 403, \"403 MCP: forbidden (other)\",\n    ResponseCode == 401, \"401 Entra: no/invalid token\",\n    ResponseCode == 403 and LastErrorReason == \"OpenAITokenQuotaExceeded\", \"403 quota exhausted (team/user)\",\n    ResponseCode == 403 and ApiId == \"openai\" and isempty(LastErrorReason), \"403 TeamBudgetExhausted (kill switch)\",\n    ResponseCode == 429, \"429 TPM exceeded (rate limit)\",\n    strcat(tostring(ResponseCode), \" other\"))\n| extend U = tostring(parse_json(ResponseHeaders)[\"x-portops-user\"])\n| extend Who = case(isnotempty(U), U, isnotempty(ApimSubscriptionId), ApimSubscriptionId, ProductId)\n| project TimeGenerated, Reason, ApiId, ResponseCode, Who, LastErrorSource, LastErrorReason, CorrelationId\n| order by TimeGenerated desc\n| take 50",
+        "size": 1,
+        "title": "Latest blocked requests",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table"
+      },
+      "name": "blk-list"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 12. Budget enforcement"
+      },
+      "name": "text-49"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "The budget enforcer (Logic App `la-portops-budget-enforcer`) flips the APIM named value `team-<team>-enabled` when a spend alert fires; the gateway then answers **403 TeamBudgetExhausted**. Thresholds below are the spend-alert limits (ops 5 / it 1 / cs 2 USD per day, illustrative estimate)."
+      },
+      "name": "text-50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let prices = datatable(Model:string, PriceIn:double, PriceOut:double)\n  [\"gpt-4.1-mini\", 0.40, 1.60, \"gpt-4.1\", 2.00, 8.00];\nlet thr = datatable(Team:string, ThresholdUSD:double) [\"ops\", 5.0, \"it\", 1.0, \"cs\", 2.0];\nAppMetrics\n| where Name in (\"Prompt Tokens\", \"Completion Tokens\", \"Total Tokens\")\n| extend ModelRaw = tostring(Properties[\"Model\"])\n| extend Model = iff(ModelRaw startswith \"gpt-4.1-mini\", \"gpt-4.1-mini\", iff(ModelRaw startswith \"gpt-4.1\", \"gpt-4.1\", ModelRaw))\n| extend Team = iff(isnotempty(tostring(Properties[\"Team\"])), tostring(Properties[\"Team\"]), replace_string(tostring(Properties[\"Department\"]), \"dept-\", \"\"))\n| extend User = iff(isnotempty(tostring(Properties[\"User\"])), tostring(Properties[\"User\"]), \"(department key - no user)\")\n| extend ClientApp = case(isnotempty(tostring(Properties[\"ClientApp\"])), tostring(Properties[\"ClientApp\"]), isnotempty(tostring(Properties[\"Subscription ID\"])), tostring(Properties[\"Subscription ID\"]), \"(unknown)\")\n| where TimeGenerated >= startofday(now()) and Name in (\"Prompt Tokens\", \"Completion Tokens\")\n| summarize Prompt = sumif(Sum, Name == \"Prompt Tokens\"), Completion = sumif(Sum, Name == \"Completion Tokens\") by Team, Model\n| join kind=leftouter prices on Model\n| summarize EstUSDToday = round(sum(Prompt / 1e6 * coalesce(PriceIn, 0.40) + Completion / 1e6 * coalesce(PriceOut, 1.60)), 4) by Team\n| join kind=rightouter thr on Team\n| project Team = Team1, EstUSDToday = coalesce(EstUSDToday, 0.0), ThresholdUSD\n| extend PctOfThreshold = round(100.0 * EstUSDToday / ThresholdUSD, 1), Status = iff(EstUSDToday >= ThresholdUSD, \"ALERT (kill switch)\", iff(EstUSDToday >= 0.8 * ThresholdUSD, \"warning\", \"ok\"))\n| order by Team asc",
+        "size": 1,
+        "title": "Estimated spend today (UTC) per team vs spend-alert threshold",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "PctOfThreshold",
+              "formatter": 8,
+              "formatOptions": {
+                "palette": "greenRed"
+              }
+            }
+          ]
+        }
+      },
+      "name": "bud-threshold",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ApiManagementGatewayLogs\n| where ApiId == \"openai\" and ResponseCode == 403 and isempty(LastErrorReason)\n| summarize Rejected = count(), First = min(TimeGenerated), Last = max(TimeGenerated) by ProductId\n| order by Last desc",
+        "size": 1,
+        "title": "Requests rejected by the team kill switch (403 TeamBudgetExhausted)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table"
+      },
+      "name": "bud-403",
+      "customWidth": "50"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AzureDiagnostics\n| where ResourceProvider == \"MICROSOFT.LOGIC\" and Category == \"WorkflowRuntime\"\n| where OperationName == \"Microsoft.Logic/workflows/workflowRunCompleted\"\n| where Resource =~ \"LA-PORTOPS-BUDGET-ENFORCER\"\n| project TimeGenerated, Run = column_ifexists(\"resource_runId_s\", \"\"), Status = column_ifexists(\"status_s\", \"\"), Code = column_ifexists(\"code_s\", \"\"), Start = column_ifexists(\"startTime_t\", datetime(null)), End = column_ifexists(\"endTime_t\", datetime(null))\n| order by TimeGenerated desc\n| take 30",
+        "size": 1,
+        "title": "Budget enforcer Logic App runs",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "__WORKSPACE_ID__"
+        ],
+        "visualization": "table"
+      },
+      "name": "bud-runs"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "_Logic App runs need the workflow's diagnostic setting (WorkflowRuntime -> Log Analytics). If the table above is empty, open the Logic App > **Overview > Runs history** (link below)._"
+      },
+      "name": "text-54"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 13. Open in the portal"
+      },
+      "name": "text-55"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "- [Cost analysis \u2013 resource group __RESOURCE_GROUP__](https://portal.azure.com/#view/Microsoft_Azure_CostManagement/Menu/~/costanalysis/scope/%2Fsubscriptions%2F__SUBSCRIPTION_ID__%2FresourceGroups%2F__RESOURCE_GROUP__) (group by tag `project`, then by resource)\n- [Budgets \u2013 budget-portops-__SUFFIX__](https://portal.azure.com/#view/Microsoft_Azure_CostManagement/Menu/~/budgets/scope/%2Fsubscriptions%2F__SUBSCRIPTION_ID__%2FresourceGroups%2F__RESOURCE_GROUP__)\n- [API Management apim-portops-__SUFFIX__](https://portal.azure.com/#@/resource/subscriptions/__SUBSCRIPTION_ID__/resourceGroups/__RESOURCE_GROUP__/providers/Microsoft.ApiManagement/service/apim-portops-__SUFFIX__/overview) \u2192 left menu **Monitoring \u2192 Analytics**\n- [Application Insights appi-portops-__SUFFIX__](https://portal.azure.com/#@/resource/subscriptions/__SUBSCRIPTION_ID__/resourceGroups/__RESOURCE_GROUP__/providers/microsoft.insights/components/appi-portops-__SUFFIX__/overview) \u2192 **Monitoring \u2192 Metrics** \u2192 namespace `portops`\n- [Logic App la-portops-budget-enforcer \u2013 run history](https://portal.azure.com/#@/resource/subscriptions/__SUBSCRIPTION_ID__/resourceGroups/__RESOURCE_GROUP__/providers/Microsoft.Logic/workflows/la-portops-budget-enforcer/logicApp)\n- [Foundry portal (ai.azure.com)](https://ai.azure.com) \u2192 project \u2192 **Operate / Monitor**\n- [Foundry account aif-portops-__SUFFIX__](https://portal.azure.com/#@/resource/subscriptions/__SUBSCRIPTION_ID__/resourceGroups/__RESOURCE_GROUP__/providers/Microsoft.CognitiveServices/accounts/aif-portops-__SUFFIX__/overview)"
+      },
+      "name": "text-56"
+    }
+  ],
+  "isLocked": false,
+  "fallbackResourceIds": [
+    "__WORKSPACE_ID__"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}

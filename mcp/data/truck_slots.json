@@ -1,0 +1,434 @@
+[
+ {
+  "slot_id": "TS-A-D0-06",
+  "terminal": "NCT-A",
+  "day_offset": 0,
+  "start_hour": 6,
+  "end_hour": 8,
+  "capacity": 24,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-A-D0-08",
+  "terminal": "NCT-A",
+  "day_offset": 0,
+  "start_hour": 8,
+  "end_hour": 10,
+  "capacity": 24,
+  "booked": 24
+ },
+ {
+  "slot_id": "TS-A-D0-10",
+  "terminal": "NCT-A",
+  "day_offset": 0,
+  "start_hour": 10,
+  "end_hour": 12,
+  "capacity": 24,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-A-D0-12",
+  "terminal": "NCT-A",
+  "day_offset": 0,
+  "start_hour": 12,
+  "end_hour": 14,
+  "capacity": 24,
+  "booked": 24
+ },
+ {
+  "slot_id": "TS-A-D0-14",
+  "terminal": "NCT-A",
+  "day_offset": 0,
+  "start_hour": 14,
+  "end_hour": 16,
+  "capacity": 24,
+  "booked": 24
+ },
+ {
+  "slot_id": "TS-A-D0-16",
+  "terminal": "NCT-A",
+  "day_offset": 0,
+  "start_hour": 16,
+  "end_hour": 18,
+  "capacity": 24,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-A-D0-18",
+  "terminal": "NCT-A",
+  "day_offset": 0,
+  "start_hour": 18,
+  "end_hour": 20,
+  "capacity": 24,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-A-D0-20",
+  "terminal": "NCT-A",
+  "day_offset": 0,
+  "start_hour": 20,
+  "end_hour": 22,
+  "capacity": 24,
+  "booked": 7
+ },
+ {
+  "slot_id": "TS-B-D0-06",
+  "terminal": "NCT-B",
+  "day_offset": 0,
+  "start_hour": 6,
+  "end_hour": 8,
+  "capacity": 18,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-B-D0-08",
+  "terminal": "NCT-B",
+  "day_offset": 0,
+  "start_hour": 8,
+  "end_hour": 10,
+  "capacity": 18,
+  "booked": 16
+ },
+ {
+  "slot_id": "TS-B-D0-10",
+  "terminal": "NCT-B",
+  "day_offset": 0,
+  "start_hour": 10,
+  "end_hour": 12,
+  "capacity": 18,
+  "booked": 5
+ },
+ {
+  "slot_id": "TS-B-D0-12",
+  "terminal": "NCT-B",
+  "day_offset": 0,
+  "start_hour": 12,
+  "end_hour": 14,
+  "capacity": 18,
+  "booked": 5
+ },
+ {
+  "slot_id": "TS-B-D0-14",
+  "terminal": "NCT-B",
+  "day_offset": 0,
+  "start_hour": 14,
+  "end_hour": 16,
+  "capacity": 18,
+  "booked": 16
+ },
+ {
+  "slot_id": "TS-B-D0-16",
+  "terminal": "NCT-B",
+  "day_offset": 0,
+  "start_hour": 16,
+  "end_hour": 18,
+  "capacity": 18,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-B-D0-18",
+  "terminal": "NCT-B",
+  "day_offset": 0,
+  "start_hour": 18,
+  "end_hour": 20,
+  "capacity": 18,
+  "booked": 18
+ },
+ {
+  "slot_id": "TS-B-D0-20",
+  "terminal": "NCT-B",
+  "day_offset": 0,
+  "start_hour": 20,
+  "end_hour": 22,
+  "capacity": 18,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-A-D1-06",
+  "terminal": "NCT-A",
+  "day_offset": 1,
+  "start_hour": 6,
+  "end_hour": 8,
+  "capacity": 24,
+  "booked": 7
+ },
+ {
+  "slot_id": "TS-A-D1-08",
+  "terminal": "NCT-A",
+  "day_offset": 1,
+  "start_hour": 8,
+  "end_hour": 10,
+  "capacity": 24,
+  "booked": 16
+ },
+ {
+  "slot_id": "TS-A-D1-10",
+  "terminal": "NCT-A",
+  "day_offset": 1,
+  "start_hour": 10,
+  "end_hour": 12,
+  "capacity": 24,
+  "booked": 21
+ },
+ {
+  "slot_id": "TS-A-D1-12",
+  "terminal": "NCT-A",
+  "day_offset": 1,
+  "start_hour": 12,
+  "end_hour": 14,
+  "capacity": 24,
+  "booked": 21
+ },
+ {
+  "slot_id": "TS-A-D1-14",
+  "terminal": "NCT-A",
+  "day_offset": 1,
+  "start_hour": 14,
+  "end_hour": 16,
+  "capacity": 24,
+  "booked": 7
+ },
+ {
+  "slot_id": "TS-A-D1-16",
+  "terminal": "NCT-A",
+  "day_offset": 1,
+  "start_hour": 16,
+  "end_hour": 18,
+  "capacity": 24,
+  "booked": 24
+ },
+ {
+  "slot_id": "TS-A-D1-18",
+  "terminal": "NCT-A",
+  "day_offset": 1,
+  "start_hour": 18,
+  "end_hour": 20,
+  "capacity": 24,
+  "booked": 24
+ },
+ {
+  "slot_id": "TS-A-D1-20",
+  "terminal": "NCT-A",
+  "day_offset": 1,
+  "start_hour": 20,
+  "end_hour": 22,
+  "capacity": 24,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-B-D1-06",
+  "terminal": "NCT-B",
+  "day_offset": 1,
+  "start_hour": 6,
+  "end_hour": 8,
+  "capacity": 18,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-B-D1-08",
+  "terminal": "NCT-B",
+  "day_offset": 1,
+  "start_hour": 8,
+  "end_hour": 10,
+  "capacity": 18,
+  "booked": 16
+ },
+ {
+  "slot_id": "TS-B-D1-10",
+  "terminal": "NCT-B",
+  "day_offset": 1,
+  "start_hour": 10,
+  "end_hour": 12,
+  "capacity": 18,
+  "booked": 18
+ },
+ {
+  "slot_id": "TS-B-D1-12",
+  "terminal": "NCT-B",
+  "day_offset": 1,
+  "start_hour": 12,
+  "end_hour": 14,
+  "capacity": 18,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-B-D1-14",
+  "terminal": "NCT-B",
+  "day_offset": 1,
+  "start_hour": 14,
+  "end_hour": 16,
+  "capacity": 18,
+  "booked": 5
+ },
+ {
+  "slot_id": "TS-B-D1-16",
+  "terminal": "NCT-B",
+  "day_offset": 1,
+  "start_hour": 16,
+  "end_hour": 18,
+  "capacity": 18,
+  "booked": 5
+ },
+ {
+  "slot_id": "TS-B-D1-18",
+  "terminal": "NCT-B",
+  "day_offset": 1,
+  "start_hour": 18,
+  "end_hour": 20,
+  "capacity": 18,
+  "booked": 5
+ },
+ {
+  "slot_id": "TS-B-D1-20",
+  "terminal": "NCT-B",
+  "day_offset": 1,
+  "start_hour": 20,
+  "end_hour": 22,
+  "capacity": 18,
+  "booked": 16
+ },
+ {
+  "slot_id": "TS-A-D2-06",
+  "terminal": "NCT-A",
+  "day_offset": 2,
+  "start_hour": 6,
+  "end_hour": 8,
+  "capacity": 24,
+  "booked": 16
+ },
+ {
+  "slot_id": "TS-A-D2-08",
+  "terminal": "NCT-A",
+  "day_offset": 2,
+  "start_hour": 8,
+  "end_hour": 10,
+  "capacity": 24,
+  "booked": 16
+ },
+ {
+  "slot_id": "TS-A-D2-10",
+  "terminal": "NCT-A",
+  "day_offset": 2,
+  "start_hour": 10,
+  "end_hour": 12,
+  "capacity": 24,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-A-D2-12",
+  "terminal": "NCT-A",
+  "day_offset": 2,
+  "start_hour": 12,
+  "end_hour": 14,
+  "capacity": 24,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-A-D2-14",
+  "terminal": "NCT-A",
+  "day_offset": 2,
+  "start_hour": 14,
+  "end_hour": 16,
+  "capacity": 24,
+  "booked": 16
+ },
+ {
+  "slot_id": "TS-A-D2-16",
+  "terminal": "NCT-A",
+  "day_offset": 2,
+  "start_hour": 16,
+  "end_hour": 18,
+  "capacity": 24,
+  "booked": 21
+ },
+ {
+  "slot_id": "TS-A-D2-18",
+  "terminal": "NCT-A",
+  "day_offset": 2,
+  "start_hour": 18,
+  "end_hour": 20,
+  "capacity": 24,
+  "booked": 24
+ },
+ {
+  "slot_id": "TS-A-D2-20",
+  "terminal": "NCT-A",
+  "day_offset": 2,
+  "start_hour": 20,
+  "end_hour": 22,
+  "capacity": 24,
+  "booked": 24
+ },
+ {
+  "slot_id": "TS-B-D2-06",
+  "terminal": "NCT-B",
+  "day_offset": 2,
+  "start_hour": 6,
+  "end_hour": 8,
+  "capacity": 18,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-B-D2-08",
+  "terminal": "NCT-B",
+  "day_offset": 2,
+  "start_hour": 8,
+  "end_hour": 10,
+  "capacity": 18,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-B-D2-10",
+  "terminal": "NCT-B",
+  "day_offset": 2,
+  "start_hour": 10,
+  "end_hour": 12,
+  "capacity": 18,
+  "booked": 16
+ },
+ {
+  "slot_id": "TS-B-D2-12",
+  "terminal": "NCT-B",
+  "day_offset": 2,
+  "start_hour": 12,
+  "end_hour": 14,
+  "capacity": 18,
+  "booked": 16
+ },
+ {
+  "slot_id": "TS-B-D2-14",
+  "terminal": "NCT-B",
+  "day_offset": 2,
+  "start_hour": 14,
+  "end_hour": 16,
+  "capacity": 18,
+  "booked": 12
+ },
+ {
+  "slot_id": "TS-B-D2-16",
+  "terminal": "NCT-B",
+  "day_offset": 2,
+  "start_hour": 16,
+  "end_hour": 18,
+  "capacity": 18,
+  "booked": 9
+ },
+ {
+  "slot_id": "TS-B-D2-18",
+  "terminal": "NCT-B",
+  "day_offset": 2,
+  "start_hour": 18,
+  "end_hour": 20,
+  "capacity": 18,
+  "booked": 9
+ },
+ {
+  "slot_id": "TS-B-D2-20",
+  "terminal": "NCT-B",
+  "day_offset": 2,
+  "start_hour": 20,
+  "end_hour": 22,
+  "capacity": 18,
+  "booked": 16
+ }
+]

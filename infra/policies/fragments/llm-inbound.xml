@@ -1,0 +1,78 @@
+<fragment>
+        <!-- Chaos switch: simulated 500 for the debugging demo -->
+        <choose>
+            <when condition="@(context.Request.Headers.GetValueOrDefault("x-chaos","") == "500")">
+                <return-response>
+                    <set-status code="500" reason="Simulated failure" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-header name="x-portops-chaos" exists-action="override">
+                        <value>true</value>
+                    </set-header>
+                    <set-header name="x-portops-department" exists-action="override">
+                        <value>@(context.Product?.Id ?? (context.Variables.ContainsKey("team") ? (string)context.Variables["team"] : "none"))</value>
+                    </set-header>
+                    <set-header name="x-request-id" exists-action="override">
+                        <value>@(context.RequestId.ToString())</value>
+                    </set-header>
+                    <set-header name="apim-request-id" exists-action="override">
+                        <value>@(context.RequestId.ToString())</value>
+                    </set-header>
+                    <set-body>@{
+                        return new JObject(
+                            new JProperty("error", new JObject(
+                                new JProperty("code", "PortopsChaos"),
+                                new JProperty("message", "Simulated gateway failure (x-chaos: 500)"),
+                                new JProperty("requestId", context.RequestId.ToString())
+                            ))
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </when>
+        </choose>
+
+        <!-- Model routing: deployment-id "auto" -> gpt-4.1 for analytical/long prompts, else gpt-4.1-mini -->
+        <set-variable name="requestedModel" value="@(context.Request.MatchedParameters.GetValueOrDefault("deployment-id", ""))" />
+        <choose>
+            <when condition="@((string)context.Variables["requestedModel"] == "auto")">
+                <set-variable name="routedModel" value="@{
+                    var body = context.Request.Body.As<string>(preserveContent: true) ?? "";
+                    return (body.IndexOf("analy", StringComparison.OrdinalIgnoreCase) >= 0 || body.Length > 2000) ? "gpt-4.1" : "gpt-4.1-mini";
+                }" />
+                <rewrite-uri template="@(context.Operation.UrlTemplate.Replace("{deployment-id}", (string)context.Variables["routedModel"]))" copy-unmatched-params="true" />
+            </when>
+            <otherwise>
+                <set-variable name="routedModel" value="@((string)context.Variables["requestedModel"])" />
+            </otherwise>
+        </choose>
+
+        <!-- Token metrics: key-based API = department/subscription; Entra API = team/user/calling app (max 5 custom dimensions) -->
+        <choose>
+            <when condition="@(context.Variables.ContainsKey("userUpn"))">
+                <llm-emit-token-metric namespace="portops">
+                    <dimension name="Department" value="@((string)context.Variables["team"])" />
+                    <dimension name="Team" value="@((string)context.Variables["team"])" />
+                    <dimension name="Model" value="@((string)context.Variables["routedModel"])" />
+                    <dimension name="User" value="@((string)context.Variables["userUpn"])" />
+                    <dimension name="ClientApp" value="@((string)context.Variables["clientApp"])" />
+                </llm-emit-token-metric>
+            </when>
+            <otherwise>
+                <llm-emit-token-metric namespace="portops">
+                    <dimension name="Department" value="@(context.Product?.Id ?? "none")" />
+                    <dimension name="Subscription ID" value="@(context.Subscription?.Id ?? "none")" />
+                    <dimension name="API ID" value="@(context.Api.Id)" />
+                    <dimension name="Model" value="@((string)context.Variables["routedModel"])" />
+                </llm-emit-token-metric>
+            </otherwise>
+        </choose>
+        <!-- Managed identity to Foundry: no keys -->
+        <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
+        <set-header name="Authorization" exists-action="override">
+            <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+        </set-header>
+        <!-- Strip the client's gateway key before forwarding -->
+        <set-header name="api-key" exists-action="delete" />
+        <set-backend-service backend-id="portops-openai-pool" />
+</fragment>

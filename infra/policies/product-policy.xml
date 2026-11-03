@@ -1,0 +1,20 @@
+<!--
+  Portops product policy - per-department token rate limit.
+  Placeholders __TPM__ / __QUOTA__ are substituted by infra/modules/apim.bicep.
+  Pattern from https://github.com/Azure-Samples/AI-Gateway (labs/token-rate-limiting).
+-->
+<policies>
+    <inbound>
+        <base />
+        <llm-token-limit counter-key="@(context.Subscription.Id)" tokens-per-minute="__TPM__" token-quota="__QUOTA__" token-quota-period="Monthly" estimate-prompt-tokens="true" remaining-tokens-header-name="x-ratelimit-remaining-tokens" tokens-consumed-header-name="x-ratelimit-consumed-tokens" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

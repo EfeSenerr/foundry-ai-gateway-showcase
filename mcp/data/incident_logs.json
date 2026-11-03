@@ -1,0 +1,749 @@
+[
+ {
+  "minutes_ago": 1395,
+  "system": "CRANE-PLC",
+  "level": "INFO",
+  "component": "qc06-plc",
+  "message": "Heartbeat OK, spreader locked, load 2013 kg",
+  "incident_id": null,
+  "log_id": "LOG-0001"
+ },
+ {
+  "minutes_ago": 1326,
+  "system": "CRANE-PLC",
+  "level": "INFO",
+  "component": "qc12-plc",
+  "message": "Heartbeat OK, spreader locked, load 934 kg",
+  "incident_id": null,
+  "log_id": "LOG-0002"
+ },
+ {
+  "minutes_ago": 1238,
+  "system": "CRANE-PLC",
+  "level": "INFO",
+  "component": "qc06-plc",
+  "message": "Heartbeat OK, spreader locked, load 1325 kg",
+  "incident_id": null,
+  "log_id": "LOG-0003"
+ },
+ {
+  "minutes_ago": 1219,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "vessel-planner",
+  "message": "Berth window updated for vessel, delta 951 min",
+  "incident_id": null,
+  "log_id": "LOG-0004"
+ },
+ {
+  "minutes_ago": 1111,
+  "system": "GATE-OCR",
+  "level": "INFO",
+  "component": "ocr-lane2",
+  "message": "Container ID read OK, confidence 0.94",
+  "incident_id": null,
+  "log_id": "LOG-0005"
+ },
+ {
+  "minutes_ago": 1086,
+  "system": "EDI",
+  "level": "INFO",
+  "component": "edi-gateway",
+  "message": "BAPLIE received and parsed (359 segments)",
+  "incident_id": null,
+  "log_id": "LOG-0006"
+ },
+ {
+  "minutes_ago": 1085,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1/chat/completions 200 in 1255 ms",
+  "incident_id": null,
+  "log_id": "LOG-0007"
+ },
+ {
+  "minutes_ago": 1081,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "yard-planner",
+  "message": "Stack plan optimisation completed for block C5 in 362 ms",
+  "incident_id": null,
+  "log_id": "LOG-0008"
+ },
+ {
+  "minutes_ago": 1045,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1/chat/completions 200 in 919 ms",
+  "incident_id": null,
+  "log_id": "LOG-0009"
+ },
+ {
+  "minutes_ago": 1018,
+  "system": "EDI",
+  "level": "INFO",
+  "component": "edi-gateway",
+  "message": "CODECO sent to carrier, ack received",
+  "incident_id": null,
+  "log_id": "LOG-0010"
+ },
+ {
+  "minutes_ago": 969,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "yard-planner",
+  "message": "Stack plan optimisation completed for block A2 in 2173 ms",
+  "incident_id": null,
+  "log_id": "LOG-0011"
+ },
+ {
+  "minutes_ago": 954,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1/chat/completions 200 in 86 ms",
+  "incident_id": null,
+  "log_id": "LOG-0012"
+ },
+ {
+  "minutes_ago": 854,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "yard-planner",
+  "message": "Stack plan optimisation completed for block C9 in 1072 ms",
+  "incident_id": null,
+  "log_id": "LOG-0013"
+ },
+ {
+  "minutes_ago": 826,
+  "system": "EDI",
+  "level": "INFO",
+  "component": "edi-gateway",
+  "message": "BAPLIE received and parsed (544 segments)",
+  "incident_id": null,
+  "log_id": "LOG-0014"
+ },
+ {
+  "minutes_ago": 826,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1/chat/completions 200 in 1700 ms",
+  "incident_id": null,
+  "log_id": "LOG-0015"
+ },
+ {
+  "minutes_ago": 786,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1-mini/chat/completions 200 in 1836 ms",
+  "incident_id": null,
+  "log_id": "LOG-0016"
+ },
+ {
+  "minutes_ago": 757,
+  "system": "CRANE-PLC",
+  "level": "INFO",
+  "component": "qc04-plc",
+  "message": "Heartbeat OK, spreader locked, load 585 kg",
+  "incident_id": null,
+  "log_id": "LOG-0017"
+ },
+ {
+  "minutes_ago": 674,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1-mini/chat/completions 200 in 1463 ms",
+  "incident_id": null,
+  "log_id": "LOG-0018"
+ },
+ {
+  "minutes_ago": 672,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1/chat/completions 200 in 905 ms",
+  "incident_id": null,
+  "log_id": "LOG-0019"
+ },
+ {
+  "minutes_ago": 656,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1/chat/completions 200 in 411 ms",
+  "incident_id": null,
+  "log_id": "LOG-0020"
+ },
+ {
+  "minutes_ago": 555,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1-mini/chat/completions 200 in 88 ms",
+  "incident_id": null,
+  "log_id": "LOG-0021"
+ },
+ {
+  "minutes_ago": 536,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "vessel-planner",
+  "message": "Berth window updated for vessel, delta 69 min",
+  "incident_id": null,
+  "log_id": "LOG-0022"
+ },
+ {
+  "minutes_ago": 527,
+  "system": "EDI",
+  "level": "INFO",
+  "component": "edi-gateway",
+  "message": "BAPLIE received and parsed (470 segments)",
+  "incident_id": null,
+  "log_id": "LOG-0023"
+ },
+ {
+  "minutes_ago": 520,
+  "system": "EDI",
+  "level": "ERROR",
+  "component": "edi-gateway",
+  "message": "EDI COPRAR from Meridian Ocean Carriers rejected: segment BGM invalid",
+  "incident_id": "INC-1005",
+  "log_id": "LOG-0024"
+ },
+ {
+  "minutes_ago": 515,
+  "system": "EDI",
+  "level": "ERROR",
+  "component": "edi-gateway",
+  "message": "EDI COPRAR retry rejected: duplicate message reference",
+  "incident_id": "INC-1005",
+  "log_id": "LOG-0025"
+ },
+ {
+  "minutes_ago": 505,
+  "system": "EDI",
+  "level": "INFO",
+  "component": "edi-gateway",
+  "message": "EDI COPRAR accepted after carrier resend",
+  "incident_id": "INC-1005",
+  "log_id": "LOG-0026"
+ },
+ {
+  "minutes_ago": 484,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "vessel-planner",
+  "message": "Berth window updated for vessel, delta 1860 min",
+  "incident_id": null,
+  "log_id": "LOG-0027"
+ },
+ {
+  "minutes_ago": 478,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "vessel-planner",
+  "message": "Berth window updated for vessel, delta 1758 min",
+  "incident_id": null,
+  "log_id": "LOG-0028"
+ },
+ {
+  "minutes_ago": 440,
+  "system": "EDI",
+  "level": "INFO",
+  "component": "edi-gateway",
+  "message": "CODECO sent to carrier, ack received",
+  "incident_id": null,
+  "log_id": "LOG-0029"
+ },
+ {
+  "minutes_ago": 433,
+  "system": "EDI",
+  "level": "INFO",
+  "component": "edi-gateway",
+  "message": "BAPLIE received and parsed (1768 segments)",
+  "incident_id": null,
+  "log_id": "LOG-0030"
+ },
+ {
+  "minutes_ago": 410,
+  "system": "GATE-OCR",
+  "level": "ERROR",
+  "component": "ocr-lane3",
+  "message": "OCR confidence 0.41 below threshold on lane 3 camera (plate unreadable)",
+  "incident_id": "INC-1003",
+  "log_id": "LOG-0031"
+ },
+ {
+  "minutes_ago": 409,
+  "system": "GATE-OCR",
+  "level": "ERROR",
+  "component": "ocr-lane3",
+  "message": "Lane 3 OCR retry failed, manual review required",
+  "incident_id": "INC-1003",
+  "log_id": "LOG-0032"
+ },
+ {
+  "minutes_ago": 402,
+  "system": "GATE-OCR",
+  "level": "INFO",
+  "component": "ocr-lane3",
+  "message": "Lane 3 OCR service restarted by watchdog",
+  "incident_id": "INC-1003",
+  "log_id": "LOG-0033"
+ },
+ {
+  "minutes_ago": 398,
+  "system": "GATE-OCR",
+  "level": "INFO",
+  "component": "ocr-lane3",
+  "message": "Lane 3 OCR confidence back to 0.97",
+  "incident_id": "INC-1003",
+  "log_id": "LOG-0034"
+ },
+ {
+  "minutes_ago": 359,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1/chat/completions 200 in 1482 ms",
+  "incident_id": null,
+  "log_id": "LOG-0035"
+ },
+ {
+  "minutes_ago": 350,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1/chat/completions 200 in 1420 ms",
+  "incident_id": null,
+  "log_id": "LOG-0036"
+ },
+ {
+  "minutes_ago": 349,
+  "system": "EDI",
+  "level": "INFO",
+  "component": "edi-gateway",
+  "message": "BAPLIE received and parsed (181 segments)",
+  "incident_id": null,
+  "log_id": "LOG-0037"
+ },
+ {
+  "minutes_ago": 342,
+  "system": "EDI",
+  "level": "INFO",
+  "component": "edi-gateway",
+  "message": "CODECO sent to carrier, ack received",
+  "incident_id": null,
+  "log_id": "LOG-0038"
+ },
+ {
+  "minutes_ago": 320,
+  "system": "EDI",
+  "level": "INFO",
+  "component": "edi-gateway",
+  "message": "BAPLIE received and parsed (729 segments)",
+  "incident_id": null,
+  "log_id": "LOG-0039"
+ },
+ {
+  "minutes_ago": 318,
+  "system": "EDI",
+  "level": "INFO",
+  "component": "edi-gateway",
+  "message": "BAPLIE received and parsed (2248 segments)",
+  "incident_id": null,
+  "log_id": "LOG-0040"
+ },
+ {
+  "minutes_ago": 318,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1-mini/chat/completions 200 in 2395 ms",
+  "incident_id": null,
+  "log_id": "LOG-0041"
+ },
+ {
+  "minutes_ago": 301,
+  "system": "GATE-OCR",
+  "level": "INFO",
+  "component": "ocr-lane1",
+  "message": "Container ID read OK, confidence 0.96",
+  "incident_id": null,
+  "log_id": "LOG-0042"
+ },
+ {
+  "minutes_ago": 300,
+  "system": "CRANE-PLC",
+  "level": "ERROR",
+  "component": "qc10-plc",
+  "message": "QC10 hoist drive fault code F-217, speed reduced to 50%",
+  "incident_id": "INC-1004",
+  "log_id": "LOG-0043"
+ },
+ {
+  "minutes_ago": 299,
+  "system": "CRANE-PLC",
+  "level": "ERROR",
+  "component": "qc10-plc",
+  "message": "QC10 spreader twistlock sensor timeout",
+  "incident_id": "INC-1004",
+  "log_id": "LOG-0044"
+ },
+ {
+  "minutes_ago": 292,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1-mini/chat/completions 200 in 935 ms",
+  "incident_id": null,
+  "log_id": "LOG-0045"
+ },
+ {
+  "minutes_ago": 290,
+  "system": "CRANE-PLC",
+  "level": "WARN",
+  "component": "qc10-plc",
+  "message": "QC10 operating in degraded mode, maintenance ticket MT-5521 opened",
+  "incident_id": "INC-1004",
+  "log_id": "LOG-0046"
+ },
+ {
+  "minutes_ago": 287,
+  "system": "CRANE-PLC",
+  "level": "INFO",
+  "component": "qc08-plc",
+  "message": "Heartbeat OK, spreader locked, load 1671 kg",
+  "incident_id": null,
+  "log_id": "LOG-0047"
+ },
+ {
+  "minutes_ago": 277,
+  "system": "GATE-OCR",
+  "level": "WARN",
+  "component": "ocr-lane5",
+  "message": "OCR confidence 0.74 on lane 5, accepted with warning",
+  "incident_id": null,
+  "log_id": "LOG-0048"
+ },
+ {
+  "minutes_ago": 230,
+  "system": "TOS",
+  "level": "ERROR",
+  "component": "yard-planner",
+  "message": "Yard planning deadlock detected for block B4, 12 move orders blocked",
+  "incident_id": "INC-1006",
+  "log_id": "LOG-0049"
+ },
+ {
+  "minutes_ago": 228,
+  "system": "TOS",
+  "level": "ERROR",
+  "component": "yard-planner",
+  "message": "TOS job queue depth 1,840 (threshold 1,000)",
+  "incident_id": "INC-1006",
+  "log_id": "LOG-0050"
+ },
+ {
+  "minutes_ago": 222,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "yard-planner",
+  "message": "TOS rebuilt B4 stack plan, queue draining",
+  "incident_id": "INC-1006",
+  "log_id": "LOG-0051"
+ },
+ {
+  "minutes_ago": 210,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "yard-planner",
+  "message": "TOS job queue depth 220",
+  "incident_id": "INC-1006",
+  "log_id": "LOG-0052"
+ },
+ {
+  "minutes_ago": 193,
+  "system": "EDI",
+  "level": "INFO",
+  "component": "edi-gateway",
+  "message": "CODECO sent to carrier, ack received",
+  "incident_id": null,
+  "log_id": "LOG-0053"
+ },
+ {
+  "minutes_ago": 190,
+  "system": "API-GATEWAY",
+  "level": "ERROR",
+  "component": "llm-proxy",
+  "message": "Upstream timeout after 30000ms calling model endpoint aif-portops /openai/deployments/gpt-4.1/chat/completions",
+  "incident_id": "INC-1001",
+  "log_id": "LOG-0054"
+ },
+ {
+  "minutes_ago": 189,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "vessel-planner",
+  "message": "Berth window updated for vessel, delta 1386 min",
+  "incident_id": null,
+  "log_id": "LOG-0055"
+ },
+ {
+  "minutes_ago": 188,
+  "system": "API-GATEWAY",
+  "level": "ERROR",
+  "component": "llm-proxy",
+  "message": "HTTP 500 from model endpoint: InternalServerError (x-request-id 7f3a-19c2)",
+  "incident_id": "INC-1001",
+  "log_id": "LOG-0056"
+ },
+ {
+  "minutes_ago": 185,
+  "system": "API-GATEWAY",
+  "level": "ERROR",
+  "component": "llm-proxy",
+  "message": "HTTP 500 from model endpoint: InternalServerError (x-request-id 7f3a-19c8)",
+  "incident_id": "INC-1001",
+  "log_id": "LOG-0057"
+ },
+ {
+  "minutes_ago": 184,
+  "system": "API-GATEWAY",
+  "level": "ERROR",
+  "component": "llm-proxy",
+  "message": "Retry 1/3 failed: HTTP 500 from model endpoint",
+  "incident_id": "INC-1001",
+  "log_id": "LOG-0058"
+ },
+ {
+  "minutes_ago": 181,
+  "system": "API-GATEWAY",
+  "level": "ERROR",
+  "component": "llm-proxy",
+  "message": "Circuit breaker OPEN for backend model-endpoint-primary (3 failures in 60s)",
+  "incident_id": "INC-1001",
+  "log_id": "LOG-0059"
+ },
+ {
+  "minutes_ago": 178,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "yard-planner",
+  "message": "Stack plan optimisation completed for block B4 in 249 ms",
+  "incident_id": null,
+  "log_id": "LOG-0060"
+ },
+ {
+  "minutes_ago": 176,
+  "system": "API-GATEWAY",
+  "level": "ERROR",
+  "component": "llm-proxy",
+  "message": "Upstream timeout after 30000ms calling model endpoint",
+  "incident_id": "INC-1001",
+  "log_id": "LOG-0061"
+ },
+ {
+  "minutes_ago": 170,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "Circuit breaker HALF-OPEN, probing model-endpoint-primary",
+  "incident_id": "INC-1001",
+  "log_id": "LOG-0062"
+ },
+ {
+  "minutes_ago": 169,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "Circuit breaker CLOSED, backend recovered",
+  "incident_id": "INC-1001",
+  "log_id": "LOG-0063"
+ },
+ {
+  "minutes_ago": 166,
+  "system": "EDI",
+  "level": "INFO",
+  "component": "edi-gateway",
+  "message": "BAPLIE received and parsed (1912 segments)",
+  "incident_id": null,
+  "log_id": "LOG-0064"
+ },
+ {
+  "minutes_ago": 160,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1/chat/completions 200 in 540 ms",
+  "incident_id": null,
+  "log_id": "LOG-0065"
+ },
+ {
+  "minutes_ago": 124,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1-mini/chat/completions 200 in 1369 ms",
+  "incident_id": null,
+  "log_id": "LOG-0066"
+ },
+ {
+  "minutes_ago": 120,
+  "system": "CRANE-PLC",
+  "level": "WARN",
+  "component": "qc10-plc",
+  "message": "QC10 still degraded, moves/hour 14 vs plan 30",
+  "incident_id": "INC-1004",
+  "log_id": "LOG-0067"
+ },
+ {
+  "minutes_ago": 114,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "vessel-planner",
+  "message": "Berth window updated for vessel, delta 2156 min",
+  "incident_id": null,
+  "log_id": "LOG-0068"
+ },
+ {
+  "minutes_ago": 95,
+  "system": "API-GATEWAY",
+  "level": "ERROR",
+  "component": "llm-proxy",
+  "message": "HTTP 500 llm-proxy -> model-endpoint: backend returned 500 after 5.5s (x-request-id 1a50-207)",
+  "incident_id": "INC-1002",
+  "log_id": "LOG-0069"
+ },
+ {
+  "minutes_ago": 94,
+  "system": "API-GATEWAY",
+  "level": "ERROR",
+  "component": "llm-proxy",
+  "message": "HTTP 500 llm-proxy -> model-endpoint: backend returned 500 after 8.3s (x-request-id dc9-228)",
+  "incident_id": "INC-1002",
+  "log_id": "LOG-0070"
+ },
+ {
+  "minutes_ago": 89,
+  "system": "GATE-OCR",
+  "level": "WARN",
+  "component": "ocr-lane3",
+  "message": "OCR confidence 0.7 on lane 4, accepted with warning",
+  "incident_id": null,
+  "log_id": "LOG-0071"
+ },
+ {
+  "minutes_ago": 77,
+  "system": "CRANE-PLC",
+  "level": "INFO",
+  "component": "qc11-plc",
+  "message": "Heartbeat OK, spreader locked, load 935 kg",
+  "incident_id": null,
+  "log_id": "LOG-0072"
+ },
+ {
+  "minutes_ago": 75,
+  "system": "TOS",
+  "level": "WARN",
+  "component": "appointments",
+  "message": "Truck appointment API latency p95 4.8s (SLO 1.5s)",
+  "incident_id": "INC-1007",
+  "log_id": "LOG-0073"
+ },
+ {
+  "minutes_ago": 73,
+  "system": "TOS",
+  "level": "WARN",
+  "component": "appointments",
+  "message": "Gate system slot sync lag 6 min for terminal NCT-B",
+  "incident_id": "INC-1007",
+  "log_id": "LOG-0074"
+ },
+ {
+  "minutes_ago": 65,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "appointments",
+  "message": "Slot sync caught up",
+  "incident_id": "INC-1007",
+  "log_id": "LOG-0075"
+ },
+ {
+  "minutes_ago": 61,
+  "system": "API-GATEWAY",
+  "level": "ERROR",
+  "component": "llm-proxy",
+  "message": "HTTP 500 llm-proxy -> model-endpoint: backend returned 500 after 4.6s (x-request-id 1508-1b4)",
+  "incident_id": "INC-1002",
+  "log_id": "LOG-0076"
+ },
+ {
+  "minutes_ago": 55,
+  "system": "TOS",
+  "level": "WARN",
+  "component": "reefer-monitor",
+  "message": "Reefer monitoring: R3-14 temperature excursion +3.2C above setpoint",
+  "incident_id": "INC-1008",
+  "log_id": "LOG-0077"
+ },
+ {
+  "minutes_ago": 50,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "reefer-monitor",
+  "message": "Reefer R3-14 plugged in, temperature recovering",
+  "incident_id": "INC-1008",
+  "log_id": "LOG-0078"
+ },
+ {
+  "minutes_ago": 40,
+  "system": "API-GATEWAY",
+  "level": "WARN",
+  "component": "llm-proxy",
+  "message": "HTTP 429 Too Many Requests: token quota exceeded for subscription dept-it, retry-after 30s",
+  "incident_id": null,
+  "log_id": "LOG-0079"
+ },
+ {
+  "minutes_ago": 38,
+  "system": "API-GATEWAY",
+  "level": "WARN",
+  "component": "llm-proxy",
+  "message": "HTTP 429 Too Many Requests: token quota exceeded for subscription dept-it, retry-after 30s",
+  "incident_id": null,
+  "log_id": "LOG-0080"
+ },
+ {
+  "minutes_ago": 35,
+  "system": "TOS",
+  "level": "INFO",
+  "component": "reefer-monitor",
+  "message": "Reefer R3-14 back within tolerance",
+  "incident_id": "INC-1008",
+  "log_id": "LOG-0081"
+ },
+ {
+  "minutes_ago": 35,
+  "system": "API-GATEWAY",
+  "level": "INFO",
+  "component": "llm-proxy",
+  "message": "POST /openai/deployments/gpt-4.1/chat/completions 200 in 2238 ms",
+  "incident_id": null,
+  "log_id": "LOG-0082"
+ },
+ {
+  "minutes_ago": 12,
+  "system": "API-GATEWAY",
+  "level": "WARN",
+  "component": "llm-proxy",
+  "message": "HTTP 429 Too Many Requests: token quota exceeded for subscription dept-it, retry-after 30s",
+  "incident_id": null,
+  "log_id": "LOG-0083"
+ }
+]

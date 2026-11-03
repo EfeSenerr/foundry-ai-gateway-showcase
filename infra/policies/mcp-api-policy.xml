@@ -1,0 +1,173 @@
+<!--
+  Portops AI gateway - policy of the per-team MCP APIs (mcp-ops / mcp-it / mcp-cs, native APIM "MCP server" type).
+  __TEAM__ is substituted by infra/modules/apim-mcp.bicep (one API + backend per team; the backend URL is already /<team>/mcp,
+  so tools/list is scoped server-side too).
+  Flow: authenticate (subscription key of an mcp-<team> product OR Entra token with a Team.* role)
+        -> caller team must equal the team in the path (403)
+        -> inspect the JSON-RPC request body (request only; MCP responses are never read/buffered)
+        -> tools/call: rate limit, emit McpToolCalls metric, tool allow-list from named value mcp-tools-__TEAM__
+        -> inject the backend key (named value mcp-backend-key) as x-mcp-key.
+  Denied tool call = HTTP 200 + JSON-RPC error -32001 (MCP clients surface it as a tool error instead of a transport failure).
+-->
+<policies>
+    <inbound>
+        <set-variable name="pathTeam" value="__TEAM__" />
+        <choose>
+            <when condition="@(context.Subscription != null)">
+                <set-variable name="authMode" value="key" />
+                <set-variable name="callerTeam" value="@{
+                    var p = context.Product;
+                    if (p == null || !p.Id.StartsWith("mcp-")) { return "none"; }
+                    return p.Id.Substring(4);
+                }" />
+                <set-variable name="callerId" value="@(context.Subscription.Id)" />
+            </when>
+            <when condition="@(context.Request.Headers.GetValueOrDefault("Authorization", "").StartsWith("Bearer "))">
+                <validate-azure-ad-token tenant-id="{{entra-tenant-id}}" header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized: a valid Entra token with a Team.* role is required." output-token-variable-name="jwt">
+                    <audiences>
+                        <audience>api://portops-ai-gateway</audience>
+                        <audience>{{entra-api-app-id}}</audience>
+                    </audiences>
+                    <required-claims>
+                        <claim name="roles" match="any">
+                            <value>Team.Ops</value>
+                            <value>Team.IT</value>
+                            <value>Team.CS</value>
+                        </claim>
+                    </required-claims>
+                </validate-azure-ad-token>
+                <set-variable name="authMode" value="entra" />
+                <set-variable name="callerTeam" value="@{
+                    var jwt = (Jwt)context.Variables["jwt"];
+                    var roles = jwt.Claims.GetValueOrDefault("roles", new string[0]);
+                    var pathTeam = (string)context.Variables["pathTeam"];
+                    if (roles.Any(r => r.Equals("Team." + pathTeam, StringComparison.OrdinalIgnoreCase))) { return pathTeam; }
+                    var t = roles.FirstOrDefault(r => r.StartsWith("Team."));
+                    return t == null ? "none" : t.Substring(5).ToLowerInvariant();
+                }" />
+                <set-variable name="callerId" value="@{
+                    var c = ((Jwt)context.Variables["jwt"]).Claims;
+                    foreach (var k in new[] { "preferred_username", "upn", "unique_name", "oid" }) {
+                        if (c.ContainsKey(k) && c[k].Length > 0) { return c[k][0]; }
+                    }
+                    return "unknown";
+                }" />
+            </when>
+            <otherwise>
+                <return-response>
+                    <set-status code="401" reason="Unauthorized" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>{"error":"Unauthorized: send the team subscription key (header api-key) or an Entra bearer token with a Team.* role."}</set-body>
+                </return-response>
+            </otherwise>
+        </choose>
+
+        <!-- Team in the path must be the caller's team -->
+        <choose>
+            <when condition="@((string)context.Variables["callerTeam"] != (string)context.Variables["pathTeam"])">
+                <return-response>
+                    <set-status code="403" reason="Forbidden" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-header name="x-portops-mcp-team" exists-action="override">
+                        <value>@((string)context.Variables["callerTeam"])</value>
+                    </set-header>
+                    <set-header name="x-portops-mcp-result" exists-action="override">
+                        <value>wrong-team</value>
+                    </set-header>
+                    <set-body>@("{\"error\":\"Forbidden: caller team '" + (string)context.Variables["callerTeam"] + "' may not use the '" + (string)context.Variables["pathTeam"] + "' MCP endpoint.\"}")</set-body>
+                </return-response>
+            </when>
+        </choose>
+
+        <!-- JSON-RPC inspection: method, tools called, first tool that is not in the team allow-list, request id -->
+        <set-variable name="rpc" value="@{
+            var res = new JObject();
+            res["method"] = "";
+            res["tools"] = "";
+            res["blocked"] = "";
+            res["id"] = "null";
+            try {
+                var body = context.Request.Body.As<JToken>(preserveContent: true);
+                var items = new List<JObject>();
+                if (body is JArray) { foreach (var i in (JArray)body) { if (i is JObject) { items.Add((JObject)i); } } }
+                else if (body is JObject) { items.Add((JObject)body); }
+                var allowed = "{{mcp-tools-__TEAM__}}".Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList();
+                var tools = new List<string>();
+                foreach (var m in items) {
+                    var method = (string)m["method"];
+                    if (res["method"].ToString() == "") { res["method"] = method ?? ""; var id = m["id"]; if (id != null) { res["id"] = id.ToString(Newtonsoft.Json.Formatting.None); } }
+                    if (method == "tools/call") {
+                        var name = (string)m.SelectToken("params.name") ?? "";
+                        tools.Add(name);
+                        if (res["blocked"].ToString() == "" && !allowed.Contains(name)) { res["blocked"] = name == "" ? "(none)" : name; var id2 = m["id"]; res["id"] = id2 == null ? "null" : id2.ToString(Newtonsoft.Json.Formatting.None); }
+                    }
+                }
+                res["tools"] = string.Join(",", tools);
+            } catch (Exception) { }
+            return res;
+        }" />
+
+        <choose>
+            <when condition="@(((JObject)context.Variables["rpc"])["method"].ToString() == "tools/call")">
+                <rate-limit-by-key calls="{{mcp-rate-limit-per-min}}" renewal-period="60" counter-key="@((string)context.Variables["pathTeam"] + ":" + (string)context.Variables["callerId"])" />
+                <emit-metric name="McpToolCalls" value="1" namespace="portops-mcp">
+                    <dimension name="Team" value="@((string)context.Variables["callerTeam"])" />
+                    <dimension name="Tool" value="@{
+                        var t = ((JObject)context.Variables["rpc"])["tools"].ToString();
+                        return t == "" ? "(none)" : t.Split(',')[0];
+                    }" />
+                    <dimension name="Result" value="@(((JObject)context.Variables["rpc"])["blocked"].ToString() == "" ? "allowed" : "blocked")" />
+                    <dimension name="ClientApp" value="@((string)context.Variables["callerId"])" />
+                </emit-metric>
+            </when>
+        </choose>
+        <choose>
+            <when condition="@(((JObject)context.Variables["rpc"])["blocked"].ToString() != "")">
+                <return-response>
+                    <set-status code="200" reason="OK" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-header name="x-portops-mcp-team" exists-action="override">
+                        <value>@((string)context.Variables["callerTeam"])</value>
+                    </set-header>
+                    <set-header name="x-portops-mcp-result" exists-action="override">
+                        <value>blocked</value>
+                    </set-header>
+                    <set-body>@{
+                        var rpc = (JObject)context.Variables["rpc"];
+                        return "{\"jsonrpc\":\"2.0\",\"id\":" + rpc["id"].ToString() + ",\"error\":{\"code\":-32001,\"message\":\"Tool '" + rpc["blocked"].ToString().Replace("\"", "") + "' is not permitted for team '" + (string)context.Variables["callerTeam"] + "' (gateway tool allow-list)\"}}";
+                    }</set-body>
+                </return-response>
+            </when>
+        </choose>
+
+        <!-- Backend protection: the Container App rejects calls without this key -->
+        <set-header name="x-mcp-key" exists-action="override">
+            <value>{{mcp-backend-key}}</value>
+        </set-header>
+        <!-- The gateway key / Entra token is never forwarded to the MCP server -->
+        <set-header name="api-key" exists-action="delete" />
+        <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
+        <set-header name="Authorization" exists-action="delete" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+        <set-header name="x-portops-mcp-team" exists-action="override">
+            <value>@((string)context.Variables["callerTeam"])</value>
+        </set-header>
+        <set-header name="x-portops-mcp-result" exists-action="override">
+            <value>@(((JObject)context.Variables["rpc"])["method"].ToString() == "tools/call" ? "allowed" : "n/a")</value>
+        </set-header>
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

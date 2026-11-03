@@ -1,0 +1,5 @@
+<fragment>
+        <retry condition="@(context.Response != null && (context.Response.StatusCode == 429 || context.Response.StatusCode >= 500))" count="2" interval="1" first-fast-retry="true">
+            <forward-request buffer-request-body="true" />
+        </retry>
+</fragment>

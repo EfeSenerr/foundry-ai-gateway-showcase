@@ -1,0 +1,13 @@
+openai>=1.60
+azure-identity
+azure-ai-projects>=2.0.0
+mcp>=1.2
+python-dotenv
+rich
+requests
+azure-monitor-query
+
+streamlit
+plotly
+pandas
+msal

@@ -1,0 +1,72 @@
+[
+ {
+  "berth": "A1",
+  "terminal": "NCT-A",
+  "length_m": 400,
+  "depth_m": 16.0,
+  "status": "occupied",
+  "maintenance_note": null,
+  "plan": [
+   "MV Amber Lantern",
+   "MV Nordlicht Star",
+   "MV Kestrel Dawn",
+   "MV Ostsee Pioneer"
+  ]
+ },
+ {
+  "berth": "A2",
+  "terminal": "NCT-A",
+  "length_m": 350,
+  "depth_m": 14.5,
+  "status": "occupied",
+  "maintenance_note": null,
+  "plan": [
+   "MV Elbe Voyager",
+   "MV Saltmarsh Express"
+  ]
+ },
+ {
+  "berth": "A3",
+  "terminal": "NCT-A",
+  "length_m": 300,
+  "depth_m": 13.5,
+  "status": "free",
+  "maintenance_note": "Fender replacement scheduled, 6h window",
+  "plan": []
+ },
+ {
+  "berth": "B1",
+  "terminal": "NCT-B",
+  "length_m": 420,
+  "depth_m": 16.5,
+  "status": "occupied",
+  "maintenance_note": null,
+  "plan": [
+   "MV Corsair Meridian",
+   "MV Sundance Meridian",
+   "MV Cobalt Horizon"
+  ]
+ },
+ {
+  "berth": "B2",
+  "terminal": "NCT-B",
+  "length_m": 380,
+  "depth_m": 15.0,
+  "status": "occupied",
+  "maintenance_note": null,
+  "plan": [
+   "MV Aurora Bridge",
+   "MV Fjord Mariner",
+   "MV Glacier Tern"
+  ]
+ },
+ {
+  "berth": "B3",
+  "terminal": "NCT-B",
+  "length_m": 320,
+  "depth_m": 13.0,
+  "status": "free",
+  "maintenance_note": null,
+  "plan": []
+ }
+]

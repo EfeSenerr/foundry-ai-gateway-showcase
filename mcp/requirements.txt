@@ -1,0 +1,4 @@
+mcp>=1.12,<2
+uvicorn>=0.30
+starlette>=0.40
+pytest>=8

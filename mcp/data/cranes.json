@@ -1,0 +1,114 @@
+[
+ {
+  "crane_id": "QC01",
+  "berth": "A1",
+  "vessel": "MV Nordlicht Star",
+  "status": "working",
+  "moves_per_hour": 27,
+  "moves_done": 757
+ },
+ {
+  "crane_id": "QC02",
+  "berth": "A1",
+  "vessel": "MV Nordlicht Star",
+  "status": "working",
+  "moves_per_hour": 32,
+  "moves_done": 1305
+ },
+ {
+  "crane_id": "QC03",
+  "berth": "A1",
+  "vessel": "MV Nordlicht Star",
+  "status": "working",
+  "moves_per_hour": 33,
+  "moves_done": 791
+ },
+ {
+  "crane_id": "QC04",
+  "berth": "A1",
+  "vessel": "MV Nordlicht Star",
+  "status": "working",
+  "moves_per_hour": 26,
+  "moves_done": 465
+ },
+ {
+  "crane_id": "QC05",
+  "berth": "A2",
+  "vessel": "MV Elbe Voyager",
+  "status": "working",
+  "moves_per_hour": 27,
+  "moves_done": 888
+ },
+ {
+  "crane_id": "QC06",
+  "berth": "A2",
+  "vessel": "MV Elbe Voyager",
+  "status": "degraded",
+  "moves_per_hour": 14,
+  "moves_done": 1220
+ },
+ {
+  "crane_id": "QC07",
+  "berth": "A3",
+  "vessel": null,
+  "status": "maintenance",
+  "moves_per_hour": 0,
+  "moves_done": 0
+ },
+ {
+  "crane_id": "QC08",
+  "berth": "A3",
+  "vessel": null,
+  "status": "idle",
+  "moves_per_hour": 0,
+  "moves_done": 0
+ },
+ {
+  "crane_id": "QC09",
+  "berth": "B1",
+  "vessel": "MV Sundance Meridian",
+  "status": "working",
+  "moves_per_hour": 26,
+  "moves_done": 1304
+ },
+ {
+  "crane_id": "QC10",
+  "berth": "B1",
+  "vessel": "MV Sundance Meridian",
+  "status": "working",
+  "moves_per_hour": 31,
+  "moves_done": 730
+ },
+ {
+  "crane_id": "QC11",
+  "berth": "B1",
+  "vessel": "MV Sundance Meridian",
+  "status": "working",
+  "moves_per_hour": 32,
+  "moves_done": 815
+ },
+ {
+  "crane_id": "QC12",
+  "berth": "B1",
+  "vessel": "MV Sundance Meridian",
+  "status": "working",
+  "moves_per_hour": 31,
+  "moves_done": 1030
+ },
+ {
+  "crane_id": "QC13",
+  "berth": "B2",
+  "vessel": "MV Aurora Bridge",
+  "status": "working",
+  "moves_per_hour": 32,
+  "moves_done": 1351
+ },
+ {
+  "crane_id": "QC14",
+  "berth": "B2",
+  "vessel": "MV Aurora Bridge",
+  "status": "working",
+  "moves_per_hour": 27,
+  "moves_done": 997
+ }
+]

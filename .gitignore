@@ -1,0 +1,24 @@
+.env
+*.local.*
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.azure/
+infra/*.json.bak
+infra/main.json
+
+# local-only material (notes, slides)
+customer/
+*.log
+.playwright-mcp/
+.impeccable/
+
+# env backups / scratch (keep only the sample)
+.env*
+!.env.sample
+.entra-body.json
+
+# local tooling / scaffolds (not part of the PoC)
+.agents/
+my-agent-*/

@@ -1,0 +1,14 @@
+<fragment>
+        <set-header name="x-portops-routed-model" exists-action="override">
+            <value>@((string)context.Variables["routedModel"])</value>
+        </set-header>
+        <set-header name="x-portops-department" exists-action="override">
+            <value>@(context.Product?.Id ?? (context.Variables.ContainsKey("team") ? (string)context.Variables["team"] : "none"))</value>
+        </set-header>
+        <set-header name="x-request-id" exists-action="override">
+            <value>@(context.RequestId.ToString())</value>
+        </set-header>
+        <set-header name="apim-request-id" exists-action="override">
+            <value>@(context.RequestId.ToString())</value>
+        </set-header>
+</fragment>

@@ -1,0 +1,104 @@
+<!--
+  Portops AI gateway - policy of the `openai-entra` API (identity-based limits, no subscription key).
+  Flow: validate Entra token -> derive team/user/app from claims -> team enabled? -> team limit -> user limit -> shared LLM core fragments.
+  Quotas come from named values (APIM > Named values), so they can be changed in the portal without touching this XML.
+-->
+<policies>
+    <inbound>
+        <validate-azure-ad-token tenant-id="{{entra-tenant-id}}" header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized: a valid Entra token with a Team.* role is required." output-token-variable-name="jwt">
+            <audiences>
+                <audience>api://portops-ai-gateway</audience>
+                <audience>{{entra-api-app-id}}</audience>
+            </audiences>
+            <required-claims>
+                <claim name="roles" match="any">
+                    <value>Team.Ops</value>
+                    <value>Team.IT</value>
+                    <value>Team.CS</value>
+                </claim>
+            </required-claims>
+        </validate-azure-ad-token>
+
+        <!-- Identity -> variables (team from the Team.* app role; first one wins if several) -->
+        <set-variable name="team" value="@{
+            var jwt = (Jwt)context.Variables["jwt"];
+            var roles = jwt.Claims.GetValueOrDefault("roles", new string[0]);
+            var t = roles.FirstOrDefault(r => r.StartsWith("Team."));
+            return t == null ? "none" : t.Substring(5).ToLowerInvariant();
+        }" />
+        <set-variable name="power" value="@{
+            var jwt = (Jwt)context.Variables["jwt"];
+            return jwt.Claims.GetValueOrDefault("roles", new string[0]).Contains("Tier.Power");
+        }" />
+        <set-variable name="userOid" value="@(((Jwt)context.Variables["jwt"]).Claims.GetValueOrDefault("oid", new string[] { "unknown" })[0])" />
+        <set-variable name="userUpn" value="@{
+            var c = ((Jwt)context.Variables["jwt"]).Claims;
+            foreach (var k in new[] { "preferred_username", "upn", "unique_name", "oid" }) {
+                if (c.ContainsKey(k) && c[k].Length > 0) { return c[k][0]; }
+            }
+            return "unknown";
+        }" />
+        <set-variable name="clientApp" value="@{
+            var c = ((Jwt)context.Variables["jwt"]).Claims;
+            foreach (var k in new[] { "azp", "appid" }) {
+                if (c.ContainsKey(k) && c[k].Length > 0) { return c[k][0]; }
+            }
+            return "unknown";
+        }" />
+
+        <!-- Visible even on 403/429 responses (on-error) -->
+        <set-header name="x-portops-team" exists-action="override">
+            <value>@((string)context.Variables["team"])</value>
+        </set-header>
+
+        <include-fragment fragment-id="portops-team-enabled" />
+
+        <!-- Team limit: TPM = same as the key-based product, monthly quota from named value quota-team-<team> -->
+        <choose>
+            <when condition="@((string)context.Variables["team"] == "ops")">
+                <llm-token-limit counter-key="team-ops" tokens-per-minute="20000" token-quota="{{quota-team-ops}}" token-quota-period="Monthly" estimate-prompt-tokens="true" remaining-tokens-header-name="x-ratelimit-remaining-tokens" remaining-quota-tokens-header-name="x-portops-team-remaining-quota" />
+            </when>
+            <when condition="@((string)context.Variables["team"] == "it")">
+                <llm-token-limit counter-key="team-it" tokens-per-minute="2000" token-quota="{{quota-team-it}}" token-quota-period="Monthly" estimate-prompt-tokens="true" remaining-tokens-header-name="x-ratelimit-remaining-tokens" remaining-quota-tokens-header-name="x-portops-team-remaining-quota" />
+            </when>
+            <when condition="@((string)context.Variables["team"] == "cs")">
+                <llm-token-limit counter-key="team-cs" tokens-per-minute="10000" token-quota="{{quota-team-cs}}" token-quota-period="Monthly" estimate-prompt-tokens="true" remaining-tokens-header-name="x-ratelimit-remaining-tokens" remaining-quota-tokens-header-name="x-portops-team-remaining-quota" />
+            </when>
+        </choose>
+
+        <!-- User limit: counter per Entra object id; power tier (Tier.Power role) gets a higher TPM and quota -->
+        <choose>
+            <when condition="@((bool)context.Variables["power"])">
+                <llm-token-limit counter-key="@("user-" + (string)context.Variables["userOid"])" tokens-per-minute="20000" token-quota="{{quota-user-power}}" token-quota-period="Monthly" estimate-prompt-tokens="true" remaining-tokens-header-name="x-portops-user-remaining-tokens" remaining-quota-tokens-header-name="x-portops-user-remaining-quota" />
+            </when>
+            <otherwise>
+                <llm-token-limit counter-key="@("user-" + (string)context.Variables["userOid"])" tokens-per-minute="5000" token-quota="{{quota-user-default}}" token-quota-period="Monthly" estimate-prompt-tokens="true" remaining-tokens-header-name="x-portops-user-remaining-tokens" remaining-quota-tokens-header-name="x-portops-user-remaining-quota" />
+            </otherwise>
+        </choose>
+
+        <include-fragment fragment-id="portops-llm-inbound" />
+    </inbound>
+    <backend>
+        <include-fragment fragment-id="portops-llm-backend" />
+    </backend>
+    <outbound>
+        <base />
+        <include-fragment fragment-id="portops-llm-outbound" />
+        <set-header name="x-portops-team" exists-action="override">
+            <value>@((string)context.Variables["team"])</value>
+        </set-header>
+        <set-header name="x-portops-user" exists-action="override">
+            <value>@((string)context.Variables["userUpn"])</value>
+        </set-header>
+    </outbound>
+    <on-error>
+        <base />
+        <include-fragment fragment-id="portops-llm-onerror" />
+        <set-header name="x-portops-team" exists-action="override">
+            <value>@(context.Variables.ContainsKey("team") ? (string)context.Variables["team"] : "none")</value>
+        </set-header>
+        <set-header name="x-portops-user" exists-action="override">
+            <value>@(context.Variables.ContainsKey("userUpn") ? (string)context.Variables["userUpn"] : "anonymous")</value>
+        </set-header>
+    </on-error>
+</policies>

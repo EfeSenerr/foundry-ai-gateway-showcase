@@ -1,0 +1,154 @@
+[
+ {
+  "incident_id": "INC-1001",
+  "title": "LLM proxy to model endpoint: HTTP 500s and timeouts",
+  "system": "API-GATEWAY",
+  "severity": "SEV2",
+  "status": "resolved",
+  "opened_minutes_ago": 190,
+  "resolved_minutes_ago": 169,
+  "owner": "IT Platform",
+  "root_cause": "Model endpoint backend instability; circuit breaker opened and recovered.",
+  "impact": "Operations assistant answers failed or were delayed for ~20 minutes.",
+  "next_steps": "Add backend pool with secondary deployment; keep retry with backoff.",
+  "related_log_ids": [
+   "LOG-0054",
+   "LOG-0056",
+   "LOG-0057",
+   "LOG-0058",
+   "LOG-0059",
+   "LOG-0061",
+   "LOG-0062",
+   "LOG-0063"
+  ]
+ },
+ {
+  "incident_id": "INC-1002",
+  "title": "Intermittent 500 llm-proxy -> model-endpoint",
+  "system": "API-GATEWAY",
+  "severity": "SEV3",
+  "status": "investigating",
+  "opened_minutes_ago": 95,
+  "resolved_minutes_ago": null,
+  "owner": "IT Platform",
+  "root_cause": "Unknown; correlate x-request-id between gateway logs and model endpoint logs.",
+  "impact": "~2% of agent requests return 500.",
+  "next_steps": "Trace by request id across gateway and Foundry diagnostics.",
+  "related_log_ids": [
+   "LOG-0069",
+   "LOG-0070",
+   "LOG-0076"
+  ]
+ },
+ {
+  "incident_id": "INC-1003",
+  "title": "Gate lane 3 OCR low confidence",
+  "system": "GATE-OCR",
+  "severity": "SEV3",
+  "status": "resolved",
+  "opened_minutes_ago": 410,
+  "resolved_minutes_ago": 398,
+  "owner": "Gate Systems",
+  "root_cause": "Camera lens fogging at dawn; watchdog restart cleared the stall.",
+  "impact": "Manual review at lane 3, queue of 9 trucks.",
+  "next_steps": "Schedule lens heater check.",
+  "related_log_ids": [
+   "LOG-0031",
+   "LOG-0032",
+   "LOG-0033",
+   "LOG-0034"
+  ]
+ },
+ {
+  "incident_id": "INC-1004",
+  "title": "Quay crane QC10 degraded (hoist drive fault)",
+  "system": "CRANE-PLC",
+  "severity": "SEV2",
+  "status": "monitoring",
+  "opened_minutes_ago": 300,
+  "resolved_minutes_ago": null,
+  "owner": "Engineering",
+  "root_cause": "Hoist drive fault F-217, spreader sensor timeouts.",
+  "impact": "Berth B1 productivity down ~45% on one crane.",
+  "next_steps": "Replace drive module at next shift change (MT-5521).",
+  "related_log_ids": [
+   "LOG-0043",
+   "LOG-0044",
+   "LOG-0046",
+   "LOG-0067"
+  ]
+ },
+ {
+  "incident_id": "INC-1005",
+  "title": "EDI COPRAR rejected for Meridian Ocean Carriers",
+  "system": "EDI",
+  "severity": "SEV3",
+  "status": "resolved",
+  "opened_minutes_ago": 520,
+  "resolved_minutes_ago": 505,
+  "owner": "Integration",
+  "root_cause": "Carrier sent malformed BGM segment; resend accepted.",
+  "impact": "Load list delayed 15 minutes.",
+  "next_steps": "Share schema validation report with carrier.",
+  "related_log_ids": [
+   "LOG-0024",
+   "LOG-0025",
+   "LOG-0026"
+  ]
+ },
+ {
+  "incident_id": "INC-1006",
+  "title": "TOS yard planning deadlock in block B4",
+  "system": "TOS",
+  "severity": "SEV2",
+  "status": "resolved",
+  "opened_minutes_ago": 230,
+  "resolved_minutes_ago": 210,
+  "owner": "TOS Support",
+  "root_cause": "Circular move dependency after late stack plan change.",
+  "impact": "12 move orders blocked, queue peaked at 1,840 jobs.",
+  "next_steps": "Patch planner dependency check.",
+  "related_log_ids": [
+   "LOG-0049",
+   "LOG-0050",
+   "LOG-0051",
+   "LOG-0052"
+  ]
+ },
+ {
+  "incident_id": "INC-1007",
+  "title": "Truck appointment API latency",
+  "system": "TOS",
+  "severity": "SEV3",
+  "status": "resolved",
+  "opened_minutes_ago": 75,
+  "resolved_minutes_ago": 65,
+  "owner": "TOS Support",
+  "root_cause": "DB index bloat on appointments table.",
+  "impact": "Slot booking slow for NCT-B hauliers.",
+  "next_steps": "Reindex during maintenance window.",
+  "related_log_ids": [
+   "LOG-0073",
+   "LOG-0074",
+   "LOG-0075"
+  ]
+ },
+ {
+  "incident_id": "INC-1008",
+  "title": "Reefer R3-14 temperature excursion",
+  "system": "TOS",
+  "severity": "SEV3",
+  "status": "resolved",
+  "opened_minutes_ago": 55,
+  "resolved_minutes_ago": 35,
+  "owner": "Yard Operations",
+  "root_cause": "Power plug partially disconnected.",
+  "impact": "Container held +3.2C for ~15 minutes, within cargo tolerance.",
+  "next_steps": "Add plug-check step to reefer SOP.",
+  "related_log_ids": [
+   "LOG-0077",
+   "LOG-0078",
+   "LOG-0081"
+  ]
+ }
+]

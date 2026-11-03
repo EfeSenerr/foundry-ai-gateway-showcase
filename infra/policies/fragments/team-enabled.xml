@@ -1,0 +1,35 @@
+<fragment>
+    <!-- Budget kill switch: named value team-{team}-enabled (default true). Part B flips it to false when a team's budget is exhausted. -->
+    <choose>
+        <when condition="@{
+            var team = (string)context.Variables["team"];
+            var v = team == "ops" ? "{{team-ops-enabled}}" : team == "it" ? "{{team-it-enabled}}" : team == "cs" ? "{{team-cs-enabled}}" : "true";
+            return v.Trim().ToLowerInvariant() == "false";
+        }">
+            <return-response>
+                <set-status code="403" reason="Team budget exhausted" />
+                <set-header name="Content-Type" exists-action="override">
+                    <value>application/json</value>
+                </set-header>
+                <set-header name="x-portops-team" exists-action="override">
+                    <value>@((string)context.Variables["team"])</value>
+                </set-header>
+                <set-header name="x-request-id" exists-action="override">
+                    <value>@(context.RequestId.ToString())</value>
+                </set-header>
+                <set-header name="apim-request-id" exists-action="override">
+                    <value>@(context.RequestId.ToString())</value>
+                </set-header>
+                <set-body>@{
+                    return new JObject(
+                        new JProperty("error", new JObject(
+                            new JProperty("code", "TeamBudgetExhausted"),
+                            new JProperty("message", "The budget of team '" + (string)context.Variables["team"] + "' is exhausted or the team is disabled. Contact your budget owner."),
+                            new JProperty("requestId", context.RequestId.ToString())
+                        ))
+                    ).ToString();
+                }</set-body>
+            </return-response>
+        </when>
+    </choose>
+</fragment>
