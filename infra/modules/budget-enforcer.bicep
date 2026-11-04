@@ -7,7 +7,7 @@ param userEmail string
 param apimName string
 param logAnalyticsWorkspaceId string
 
-@description('Estimated spend per team and day (USD, from token metrics x illustrative prices) that triggers the kill switch')
+@description('Estimated spend per team and day (currency of infra/pricing/model_prices.json, default USD) that triggers the kill switch')
 param teamDailyThresholdsUsd object = {
   ops: 5
   it: 1
@@ -240,15 +240,20 @@ resource enforceAg 'Microsoft.Insights/actionGroups@2023-01-01' = {
   }
 }
 
-// ---------------------------------------------------------------- near-real-time trigger: estimated USD per team today
+// ---------------------------------------------------------------- near-real-time trigger: estimated spend per team today
+// Prices come from infra/pricing/model_prices.json (generated price-table.kql) - the same table the UI and workbook use.
+// demo/cost.py sync_azure() updates the deployed queries when prices change (UI save or weekly refresh).
+var priceTableKql = loadTextContent('../pricing/price-table.kql')
+var teamSpendKql = loadTextContent('../pricing/team-spend-alert.kql')
+
 resource teamSpendAlerts 'Microsoft.Insights/scheduledQueryRules@2022-06-15' = [for team in teams: {
   name: 'alert-portops-spend-${team}'
   location: location
   tags: tags
   kind: 'LogAlert'
   properties: {
-    displayName: 'portops: estimated spend today for team ${team} above ${teamDailyThresholdsUsd[team]} USD'
-    description: 'Tokens x illustrative list prices (gpt-4.1-mini 0.40/1.60, gpt-4.1 2.00/8.00 USD per 1M in/out). Fires the budget enforcer, which sets APIM named value team-${team}-enabled=false.'
+    displayName: 'portops: estimated spend today for team ${team} above ${teamDailyThresholdsUsd[team]} (price-table currency)'
+    description: 'Tokens per type (input, cached, cache write, output) x infra/pricing/model_prices.json; unknown prices count at the highest known price. Fires the budget enforcer, which sets APIM named value team-${team}-enabled=false.'
     severity: 4
     enabled: true
     scopes: [logAnalyticsWorkspaceId]
@@ -259,17 +264,7 @@ resource teamSpendAlerts 'Microsoft.Insights/scheduledQueryRules@2022-06-15' = [
     criteria: {
       allOf: [
         {
-          query: '''
-let prices = datatable(Model:string, PriceIn:real, PriceOut:real) ["gpt-4.1-mini", 0.40, 1.60, "gpt-4.1", 2.00, 8.00];
-AppMetrics
-| where TimeGenerated >= startofday(now())
-| where Name in ("Prompt Tokens", "Completion Tokens")
-| extend Team = iff(tostring(Properties.Team) != "", tostring(Properties.Team), replace_string(tostring(Properties.Department), "dept-", "")), Model = tostring(Properties.Model)
-| where Team == "${team}"
-| lookup prices on Model
-| extend Price = iff(Name == "Prompt Tokens", coalesce(PriceIn, 0.40), coalesce(PriceOut, 1.60))
-| summarize EstimatedUsd = sum(Sum * Price / 1000000.0)
-'''
+          query: '${priceTableKql}${replace(teamSpendKql, '__TEAM__', team)}'
           timeAggregation: 'Total'
           metricMeasureColumn: 'EstimatedUsd'
           operator: 'GreaterThan'

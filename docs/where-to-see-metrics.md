@@ -55,7 +55,7 @@ If **Department** is missing in *Apply splitting*: check App Insights `CustomMet
 
 - **Metrics / workbook tiles empty**: widen **Time range**, then generate traffic: `demo\.venv\Scripts\python.exe demo\run_all_smoke.py --skip-agents` (TPM limit 2000 – wait 60 s between bursts) and wait 2–5 min. Meanwhile show APIM **Analytics** or the Container App **Log stream**, which are faster.
 - **LLM log / lookup section empty**: needs diagnostic categories `GatewayLogs` + `GatewayLlmLogs` with LLM logging enabled on the API diagnostic; use the gateway row and `AppMetrics` instead.
-- **Cost analysis empty or flat**: cost data lags 8–24 h. Show the workbook estimate (“illustrative list price”), the budget definition, and explain `project`-tag chargeback.
+- **Cost analysis empty or flat**: cost data lags 8–24 h. Show the workbook estimate (price table `infra/pricing/model_prices.json`), the budget definition, and explain `project`-tag chargeback.
 - **Foundry Operate/Monitor empty**: traffic through the gateway is not tied to a project; use the Foundry account metrics or workbook section 7.
 
 ## Deploy / refresh the workbook

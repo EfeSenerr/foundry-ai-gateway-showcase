@@ -69,7 +69,7 @@ history = st.session_state.setdefault(key, [])
 # ---------------------------------------------------------------- helpers
 def gateway_info(headers: dict, usage: dict, model: str) -> dict:
     routed = common.header(headers, "x-portops-routed-model") or model
-    base = next((p for p in common.PRICES if str(routed).startswith(p)), "gpt-4.1-mini")
+    base = common.price_model(routed)
     return {
         "routed": routed,
         "dept": common.header(headers, "x-portops-department"),
@@ -98,7 +98,7 @@ def render_extras(m: dict) -> None:
             c[1].metric("Department", g["dept"] or "-")
             c[2].metric("Tokens (in / out)", f"{g['prompt']} / {g['completion']}")
             c[3].metric("Remaining dept tokens", g["remaining"] or "-")
-            c[4].metric("Est. cost (illustrative)", f"${g['cost']:.5f}")
+            c[4].metric("Est. cost (list price)", f"${g['cost']:.5f}")
             st.caption("apim-request-id")
             st.code(g["request_id"] or "-", language=None)
 
@@ -231,7 +231,7 @@ with tab_ctrl:
                             r = model_routing_demo.route(dept, name, q)
                         st.metric("Routed model", r["model"])
                         st.write(f"Tokens: {r['prompt']} / {r['completion']} - "
-                                 f"est. cost ${r['cost']:.6f} (illustrative)")
+                                 f"est. cost ${r['cost']:.6f} (list price)")
                         st.code(r["request_id"], language=None)
                     except Exception as e:  # noqa: BLE001
                         if getattr(e, "status_code", None) == 429:

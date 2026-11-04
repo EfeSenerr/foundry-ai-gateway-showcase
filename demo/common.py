@@ -126,13 +126,22 @@ def header(headers, *names: str) -> str:
     return ""
 
 
-# Illustrative list prices, USD per 1M tokens (input, output) - illustrative list price, verify.
-PRICES = {
-    "gpt-4.1-mini": (0.40, 1.60),
-    "gpt-4.1": (2.00, 8.00),
-}
+def price_model(model: str) -> str:
+    """Price-table key for a (possibly versioned) model name: longest table name the model starts with."""
+    import json
+    f = REPO_ROOT / "infra" / "pricing" / "model_prices.json"
+    names = json.loads(f.read_text(encoding="utf-8")).get("models", {}) if f.exists() else {}
+    return next((m for m in sorted(names, key=len, reverse=True) if str(model).startswith(m)), str(model))
 
 
-def estimate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
-    pin, pout = PRICES.get(model, PRICES["gpt-4.1-mini"])
-    return prompt_tokens / 1e6 * pin + completion_tokens / 1e6 * pout
+def estimate_cost(model: str, prompt_tokens: int, completion_tokens: int, cached_tokens: int = 0) -> float:
+    """Estimated cost from the shared price table infra/pricing/model_prices.json (same as Cost & usage page and alerts).
+    Unknown models/prices count as 0 here; the Cost & usage page flags them as unpriced."""
+    import json
+    f = REPO_ROOT / "infra" / "pricing" / "model_prices.json"
+    p = json.loads(f.read_text(encoding="utf-8")).get("models", {}).get(model, {}) if f.exists() else {}
+    def price(k: str) -> float:
+        return float(p.get(k) or 0.0)
+    cached = min(cached_tokens, prompt_tokens)
+    return ((prompt_tokens - cached) * price("input") + cached * (price("cached") if p.get("cached") is not None else price("input"))
+            + completion_tokens * price("output")) / 1e6

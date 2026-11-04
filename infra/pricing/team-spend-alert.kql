@@ -1,0 +1,11 @@
+// Spend alert for one team (budget kill switch). Bicep prepends price-table.kql and replaces __TEAM__.
+// Estimated spend today (UTC) for the team, all token types, conservative: unknown prices = highest known price.
+AppMetrics
+| where TimeGenerated >= startofday(now())
+| where Name in ("Prompt Tokens", "Prompt Cached Tokens", "Cache Creation Tokens", "Completion Tokens")
+| extend Team = iff(tostring(Properties.Team) != "", tostring(Properties.Team), replace_string(tostring(Properties.Department), "dept-", "")), Model = tostring(Properties.Model)
+| where Team == "__TEAM__"
+| summarize Prompt = sumif(Sum, Name == "Prompt Tokens"), Cached = sumif(Sum, Name == "Prompt Cached Tokens"),
+            CacheWrite = sumif(Sum, Name == "Cache Creation Tokens"), Output = sumif(Sum, Name == "Completion Tokens") by Model
+| invoke add_cost(true)
+| summarize EstimatedUsd = sum(EstCost)

@@ -6,7 +6,7 @@
 // Blocks start with "// ### <name>". Time range is set with `ago(...)`; adjust as needed.
 // Table/column names depend on the diagnostic setting destination type (resource-specific
 // tables vs AzureDiagnostics). Fallbacks are noted per query - VERIFY against the live workspace.
-// Illustrative list prices (USD per 1M tokens, verify): gpt-4.1-mini 0.40 in / 1.60 out; gpt-4.1 2.00 / 8.00.
+// Prices: infra/pricing/model_prices.json -> price-table.kql (shared with the UI, spend alerts and workbook).
 // =====================================================================================
 
 // ### tokens_per_dept
@@ -109,18 +109,17 @@ AzureDiagnostics
 | order by TimeGenerated desc
 
 // ### cost_per_dept
-// Cost estimate per department = tokens x illustrative list price (verify prices before quoting).
-// Uses the metric 'Model' dimension; price per 1M tokens (input, output).
-let prices = datatable(Model:string, PriceIn:double, PriceOut:double)
-  ["gpt-4.1-mini", 0.40, 1.60, "gpt-4.1", 2.00, 8.00];
+// Cost estimate per department = tokens per type (input, cached, cache write, output) x price table.
+// Needs the price block: in the portal paste infra/pricing/price-table.kql above this query
+// (run_queries.py adds it automatically). UnpricedTokens > 0 = model/type without price (estimate incomplete).
 AppMetrics
 | where TimeGenerated > ago(24h)
-| where Name in ("Prompt Tokens", "Completion Tokens")
-| extend Department = tostring(Properties["Department"]), ModelRaw = tostring(Properties["Model"])
-| extend Model = iff(ModelRaw startswith "gpt-4.1-mini", "gpt-4.1-mini", iff(ModelRaw startswith "gpt-4.1", "gpt-4.1", ModelRaw))
-| summarize Prompt = sumif(Sum, Name == "Prompt Tokens"), Completion = sumif(Sum, Name == "Completion Tokens")
+| where Name in ("Prompt Tokens", "Prompt Cached Tokens", "Cache Creation Tokens", "Completion Tokens")
+| extend Department = tostring(Properties["Department"]), Model = tostring(Properties["Model"])
+| summarize Prompt = sumif(Sum, Name == "Prompt Tokens"), Cached = sumif(Sum, Name == "Prompt Cached Tokens"),
+            CacheWrite = sumif(Sum, Name == "Cache Creation Tokens"), Output = sumif(Sum, Name == "Completion Tokens")
           by Department, Model
-| join kind=leftouter prices on Model
-| extend EstCostUSD = round(Prompt / 1e6 * PriceIn + Completion / 1e6 * PriceOut, 4)
-| project Department, Model, Prompt, Completion, EstCostUSD
+| invoke add_cost(false)
+| extend EstCostUSD = round(EstCost, 4)
+| project Department, Model, Prompt, Cached, CacheWrite, Output, EstCostUSD, UnpricedTokens
 | order by EstCostUSD desc

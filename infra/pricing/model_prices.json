@@ -1,0 +1,58 @@
+{
+  "currency": "USD",
+  "region": "swedencentral",
+  "source": "Azure Retail Prices API (list prices, pay-as-you-go); per-model variant below",
+  "updated": "2026-11-04",
+  "models": {
+    "gpt-4.1-mini": {
+      "input": 0.44,
+      "cached": 0.11,
+      "cache_write": null,
+      "output": 1.76,
+      "deployment_type": "Data Zone",
+      "plan": "Standard",
+      "context": "Short",
+      "source": "list"
+    },
+    "gpt-4.1": {
+      "input": 2.2,
+      "cached": 0.55,
+      "cache_write": null,
+      "output": 8.8,
+      "deployment_type": "Data Zone",
+      "plan": "Standard",
+      "context": "Short",
+      "source": "list"
+    },
+    "gpt-6-luna": {
+      "input": 0.12,
+      "cached": 0.012,
+      "cache_write": 0.15,
+      "output": 0.6,
+      "deployment_type": "Data Zone",
+      "plan": "Standard",
+      "context": "Short",
+      "source": "list"
+    },
+    "gpt-6-sol": {
+      "input": 2.4,
+      "cached": 0.24,
+      "cache_write": 3.0,
+      "output": 12.0,
+      "deployment_type": "Data Zone",
+      "plan": "Standard",
+      "context": "Short",
+      "source": "list"
+    },
+    "gpt-6-astra": {
+      "input": 12.0,
+      "cached": 1.2,
+      "cache_write": 15.0,
+      "output": 60.0,
+      "deployment_type": "Data Zone",
+      "plan": "Standard",
+      "context": "Short",
+      "source": "list"
+    }
+  }
+}

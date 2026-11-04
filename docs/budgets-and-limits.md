@@ -40,14 +40,14 @@ Azure Cost Management budgets only alert (with 8-24 h delay); the **gateway quot
 
 `tokens = budget / blended price per 1M tokens x 1,000,000`
 
-Illustrative list prices (USD per 1M tokens, input/output, from `demo/common.py` `PRICES`; verify before quoting):
+List prices (USD per 1M tokens, input/output, Data Zone, from `infra/pricing/model_prices.json`; verify before quoting):
 
 | Model | Input / Output | Blended (3:1 input:output) | 10 USD buys approx. |
 |---|---|---|---|
-| gpt-4.1-mini | 0.40 / 1.60 | 0.70 | 14 M tokens |
-| gpt-4.1 | 2.00 / 8.00 | 3.50 | 2.9 M tokens |
+| gpt-4.1-mini | 0.44 / 1.76 | 0.77 | 13 M tokens |
+| gpt-4.1 | 2.20 / 8.80 | 3.85 | 2.6 M tokens |
 
-Example: a person budget of 10 USD/month on gpt-4.1-mini -> `quota-user-default` = 14000000. Mixed models: use the more expensive model for a safe (conservative) quota.
+Example: a person budget of 10 USD/month on gpt-4.1-mini -> `quota-user-default` = 13000000. Mixed models: use the more expensive model for a safe (conservative) quota.
 
 ## Per-agent / per-person reporting
 
@@ -89,7 +89,7 @@ The 403 applies to both the key-based `/openai` API and the Entra `/entra/openai
 
 | Trigger | Resource | Latency | Notes |
 |---|---|---|---|
-| Near-real-time (demo-able) | scheduled query alerts `alert-portops-spend-{ops,it,cs}` | evaluated every 5 min, plus 5-15 min ingestion/alert delay | KQL over `AppMetrics` (`Prompt/Completion Tokens`) x illustrative prices (gpt-4.1-mini 0.40/1.60, gpt-4.1 2.00/8.00 USD per 1M tokens, verify). Estimated spend since midnight UTC per team; thresholds (USD/day) are Bicep param `teamDailyThresholdsUsd` (ops 5, it 1, cs 2). Stateless: while above the threshold it re-fires every 5 min, so a manual re-enable is undone until midnight UTC (or raise the threshold). |
+| Near-real-time (demo-able) | scheduled query alerts `alert-portops-spend-{ops,it,cs}` | evaluated every 5 min, plus 5-15 min ingestion/alert delay | KQL over `AppMetrics` (input, cached, cache-write and output tokens) x the shared price table `infra/pricing/model_prices.json` (see [cost-management.md](cost-management.md)); unknown prices count at the highest known price. Estimated spend since midnight UTC per team; thresholds (USD/day) are Bicep param `teamDailyThresholdsUsd` (ops 5, it 1, cs 2). Stateless: while above the threshold it re-fires every 5 min, so a manual re-enable is undone until midnight UTC (or raise the threshold). |
 | Real € budget | `budget-portops-<suffix>` (RG, 100/month) and `budget-portops-<suffix>-{ops,it,cs}` | 8-24 h cost-data lag | Per-team budgets filter on the resource tag `project` (values ops/it/cs) and notify the enforce action group at 100% actual. **Caveat:** Azure accepts the tag filter, but Foundry model spend is booked on the single Foundry account, so it is not attributed to a team `project` tag today; the per-team budgets therefore only fire for tagged resources. Per-team spend in € comes from the token-metric alert above (or FinOps allocation in the customer subscription). The RG-level budget notifies the original `ag-portops-<suffix>` (email); add `ag-portops-budget-enforce` as a contact group there only if you want a whole-RG stop (the enforcer needs a team in the payload, otherwise it answers 400). |
 | Manual / demo | HTTP POST to the Logic App | seconds | Body `{"team":"cs","action":"disable","reason":"..."}`, a common alert schema payload or a budget payload. The enforcer only disables: `action:"enable"` returns 400 (re-enable via `la-portops-budget-reset`). |
 
@@ -118,7 +118,7 @@ Compared with the Azure-Samples/AI-Gateway FinOps framework lab.
 | Kill switch scope | Deviation: APIM named value instead of suspending the APIM subscription, so it also covers the Entra API |
 | Evaluation window | Deviation: daily window (since midnight UTC) |
 | Usage source | Deviation: `AppMetrics` (token metrics) instead of `ApiManagementGatewayLlmLog` |
-| Prices | Deviation: hard-coded illustrative prices; production: pricing table in Log Analytics fed via a DCR, as in the lab |
+| Prices | One price table (`infra/pricing/model_prices.json`) for UI, workbook and alerts, refreshed weekly from the Retail Prices API and pushed into the deployed alerts; the lab keeps prices in a Log Analytics table fed via a DCR, which avoids rewriting queries |
 | Enforcer trigger can only disable (`enable` -> 400); re-enable only via `la-portops-budget-reset` (monthly + `Manual_reenable` `{"team":"cs"\|"all"}`) | Fix 2 |
 | Alert noise: `muteActionsDuration: PT1H` on the scheduled query rules (actions/emails at most hourly per team) | Fix 3 |
 

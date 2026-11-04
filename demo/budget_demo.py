@@ -72,17 +72,17 @@ def last_run() -> str:
 
 
 def todays_estimate() -> dict[str, float]:
-    """Estimated USD per team since midnight UTC (same maths as the scheduled query alerts)."""
-    prices = ", ".join(f'"{m}", {i}, {o}' for m, (i, o) in common.PRICES.items())
-    q = f"""
-let prices = datatable(Model:string, PriceIn:real, PriceOut:real) [{prices}];
+    """Estimated spend per team since midnight UTC - same price table and formula as the scheduled spend alerts."""
+    import cost
+    q = cost.kql_price_block(cost.load_prices()) + """
 AppMetrics
 | where TimeGenerated >= startofday(now())
-| where Name in ("Prompt Tokens", "Completion Tokens")
+| where Name in ("Prompt Tokens", "Prompt Cached Tokens", "Cache Creation Tokens", "Completion Tokens")
 | extend Team = iff(tostring(Properties.Team) != "", tostring(Properties.Team), replace_string(tostring(Properties.Department), "dept-", "")), Model = tostring(Properties.Model)
-| lookup prices on Model
-| extend Price = iff(Name == "Prompt Tokens", coalesce(PriceIn, 0.40), coalesce(PriceOut, 1.60))
-| summarize EstimatedUsd = sum(Sum * Price / 1000000.0) by Team
+| summarize Prompt = sumif(Sum, Name == "Prompt Tokens"), Cached = sumif(Sum, Name == "Prompt Cached Tokens"),
+            CacheWrite = sumif(Sum, Name == "Cache Creation Tokens"), Output = sumif(Sum, Name == "Completion Tokens") by Team, Model
+| invoke add_cost(true)
+| summarize EstimatedUsd = sum(EstCost) by Team
 """
     r = requests.post(f"https://api.loganalytics.io/v1/workspaces/{common.env('LOG_ANALYTICS_WORKSPACE_ID')}/query",
                       json={"query": q}, headers={"Authorization": f"Bearer {_token('https://api.loganalytics.io')}"}, timeout=60)

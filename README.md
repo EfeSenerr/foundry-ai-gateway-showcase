@@ -42,8 +42,8 @@ Where every metric/visualization lives: [docs/where-to-see-metrics.md](docs/wher
 ## Repo layout
 ```
 README.md  .env.sample  .gitignore
-infra/          Bicep, APIM policies
-scripts/        setup-entra.ps1, deploy.ps1, deploy-mcp.ps1, setup-foundry-gateway.ps1, teardown.ps1
+infra/          Bicep, APIM policies, pricing/ (shared model price table)
+scripts/        setup-entra.ps1, deploy.ps1, deploy-mcp.ps1, setup-foundry-gateway.ps1, refresh-prices.ps1, teardown.ps1
 mcp/            FastMCP server (/mcp, /ops/mcp, /it/mcp, /cs/mcp; reachable only with the APIM-held x-mcp-key), synthetic data, tests
 demo/           CLI agent, Foundry agents, 429/500/routing demos, smoke test
 observability/  queries.kql, run_queries.py
@@ -55,5 +55,9 @@ docs/           architecture, budgets-and-limits, mcp-governance, cost-managemen
 .\scripts\run-ui.ps1        # opens http://localhost:8501
 ```
 Page **Use cases**: department-scoped chat (AI Gateway agent or Foundry Agent), tool calls, gateway panel
-(routed model, tokens, remaining quota, illustrative cost, `apim-request-id`), scope test, and gateway controls
+(routed model, tokens, remaining quota, estimated cost, `apim-request-id`), scope test, and gateway controls
 (token-limit burst -> 429, simulated backend 500 + KQL, model routing). Needs `az login` for Foundry Agent mode.
+Page **Cost & usage**: estimated spend in $ per team, person and model, priced per token type (input, cached, cache
+write, output) from an editable price table (`infra/pricing/model_prices.json` - the same table the budget kill switch
+uses; weekly refresh: `scripts\refresh-prices.ps1 -Register`), plus estimate vs. actual from Cost Management.
+Details: [docs/cost-management.md](docs/cost-management.md).
