@@ -94,6 +94,35 @@ sequenceDiagram
   A-->>OW: answer, or 403 "Token quota is exceeded…" shown in the chat
 ```
 
+### Identity per hop
+
+```mermaid
+flowchart LR
+  B["Browser (user)"]
+  E["Entra ID"]
+  OW["Open WebUI<br/>stores the user's access + refresh token (encrypted)"]
+  A["APIM /entra/v1<br/>validate-azure-ad-token"]
+  F["Foundry<br/>model deployment"]
+
+  B -- "① OIDC sign-in (auth code)" --> E
+  E -- "② ID token (aud = Open WebUI app)<br/>access token (aud = gateway API · scp Gateway.Use · roles Team.X · oid · azp)<br/>refresh token (offline_access)" --> OW
+  B -- "③ Open WebUI session cookie<br/>(Open WebUI's own JWT)" --> OW
+  OW -- "④ Authorization: Bearer = user access token<br/>+ X-OpenWebUI-User-* headers (informational)" --> A
+  A -- "⑤ Authorization: Bearer = APIM managed identity token<br/>(aud = cognitiveservices) · user token is NOT forwarded" --> F
+  A -. "⑥ 200 / 401 / 403 / 429 + x-portops-team · x-portops-user · remaining-quota headers" .-> OW
+```
+
+| Hop | Credential on the wire | Identity visible at the receiver | Enforced / recorded here |
+|---|---|---|---|
+| ① Browser → Entra | OIDC authorization-code flow, Conditional Access/MFA apply | user | sign-in policy, Conditional Access |
+| ② Entra → Open WebUI | ID token (sign-in), **access token for the gateway API**, refresh token | user: `oid`, `preferred_username`, `roles` (Team.*), `azp` = Open WebUI app | Open WebUI account + (optional) group sync; tokens kept server-side |
+| ③ Browser → Open WebUI | Open WebUI session cookie | Open WebUI user | which models/tools the user sees (Open WebUI groups) |
+| ④ Open WebUI → APIM | `Bearer` = the user's Entra access token (`auth_type: system_oauth`); `X-OpenWebUI-User-*` headers are **not** trusted | **user (`oid`), team (`roles`), calling app (`azp`)**, cryptographically verified | signature/audience/tenant/required role → 401; team kill switch → 403; team + user `llm-token-limit` → 429/403; model allow-list → 400; token metrics Team/User/ClientApp/Model; LLM logs |
+| ⑤ APIM → Foundry | `Bearer` = APIM **managed identity** token | APIM's managed identity only (role *Cognitive Services OpenAI User*) | deployment quota; Foundry diagnostics show the gateway, not the user. User attribution lives in APIM logs/metrics |
+| ⑥ APIM → Open WebUI | response + headers | — | Open WebUI shows the 403/429 message in the chat |
+
+Trust boundary: identity is decided **once**, at hop ④, from a signed Entra token. Nothing downstream needs to trust a header, and the user's token never reaches Foundry (least privilege: users don't need RBAC on Foundry).
+
 - **Teams = Entra security groups** assigned to app roles (`Team.Ops|IT|CS`) on the gateway's app registration (`scripts/setup-entra.ps1`). Granting access means adding someone to a group. Users without a `Team.*` role get **401**.
 - **Quotas live in APIM named values** (`quota-team-*`, `quota-owui-user`), so you can change them without editing XML. To turn a € budget into tokens: `tokens = budget ÷ blended price per 1M × 1,000,000` ([budgets-and-limits](budgets-and-limits.md)).
 - **One audience per token:** Entra issues the access token for the gateway API only. That's fine here, because Open WebUI only needs the ID token for sign-in. Graph calls with that token (e.g. the profile picture) fail.
