@@ -1,8 +1,10 @@
 <#
- Adds the OpenAI v1-compatible API "openai-entra-v1" (path entra/v1) to the EXISTING PoC APIM. Additive only:
-   - named value quota-owui-user (created once; existing value is kept unless -UserQuota is passed)
-   - API openai-entra-v1 + operations (POST /chat/completions, GET /models) + policy infra\policies\openai-entra-v1-policy.xml
+ Adds the Open WebUI APIs to the EXISTING PoC APIM. Additive only:
+   - openai-entra-v1      path entra/v1         OpenAI v1 chat completions for raw models (infra\policies\openai-entra-v1-policy.xml)
+   - openai-entra-agents  path entra/agents/v1  Responses API for Foundry agents, invoked as the user via OBO (infra\policies\openai-entra-agents-policy.xml)
+   - named values quota-owui-user (kept unless -UserQuota is passed) and foundry-services-host
    - diagnostics copied from the PoC API openai-entra (App Insights token metrics + LLM logs)
+ The agents API needs scripts\setup-openwebui-agents.ps1 (OBO federated credential, Foundry RBAC).
  Uses an ARM token for the PoC subscription (does not change the az default account).
  Remove: .\setup-apim-entra-v1.ps1 -Remove
 #>
@@ -31,42 +33,47 @@ function Arm([string]$Method, [string]$Path, $Body, [string]$Ver = $v) {
     Invoke-RestMethod @p
 }
 
+$apis = @(
+    @{ name = 'openai-entra-v1'; display = 'Portops OpenAI v1 (Entra user token, Open WebUI)'; path = 'entra/v1'; policy = 'openai-entra-v1-policy.xml'
+       ops = @(@{ name = 'chat-completions'; display = 'Chat completions'; method = 'POST'; url = '/chat/completions' }
+               @{ name = 'responses'; display = 'Responses'; method = 'POST'; url = '/responses' }
+               @{ name = 'list-models'; display = 'List models'; method = 'GET'; url = '/models' }) }
+    @{ name = 'openai-entra-agents'; display = 'Portops Foundry agents (Entra user token, OBO, Open WebUI)'; path = 'entra/agents/v1'; policy = 'openai-entra-agents-policy.xml'
+       ops = @(@{ name = 'responses'; display = 'Responses (agent)'; method = 'POST'; url = '/responses' }
+               @{ name = 'list-models'; display = 'List agents'; method = 'GET'; url = '/models' }) }
+)
+
 if ($Remove) {
-    Arm DELETE '/apis/openai-entra-v1' $null | Out-Null
-    Arm DELETE '/namedValues/quota-owui-user' $null | Out-Null
-    Write-Host 'Removed API openai-entra-v1 and named value quota-owui-user.'; return
+    foreach ($a in $apis) { Arm DELETE "/apis/$($a.name)" $null | Out-Null }
+    foreach ($n in 'quota-owui-user', 'foundry-services-host') { Arm DELETE "/namedValues/$n" $null | Out-Null }
+    Write-Host 'Removed the Open WebUI APIs and named values.'; return
 }
 
-# named value
+# named values
 $nv = $null; try { $nv = Arm GET '/namedValues/quota-owui-user' $null } catch {}
 if (-not $nv -or $UserQuota) {
     $val = if ($UserQuota) { $UserQuota } else { '200000' }
     Arm PUT '/namedValues/quota-owui-user' @{ properties = @{ displayName = 'quota-owui-user'; value = $val; secret = $false } } | Out-Null
     Write-Host "Named value quota-owui-user = $val"
 }
+$foundryHost = "$(Get-PocValue 'FOUNDRY_ACCOUNT_NAME').services.ai.azure.com"
+Arm PUT '/namedValues/foundry-services-host' @{ properties = @{ displayName = 'foundry-services-host'; value = $foundryHost; secret = $false } } | Out-Null
 
-# API (serviceUrl taken from the PoC entra API; the policy routes to the backend pool anyway)
+# APIs (serviceUrl taken from the PoC entra API; the policies set the backend themselves)
 $src = Arm GET '/apis/openai-entra' $null
-Arm PUT '/apis/openai-entra-v1' @{ properties = @{
-    displayName = 'Portops OpenAI v1 (Entra user token, Open WebUI)'; path = 'entra/v1'; protocols = @('https')
-    subscriptionRequired = $false; serviceUrl = $src.properties.serviceUrl } } | Out-Null
-
-$ops = @(
-    @{ name = 'chat-completions'; display = 'Chat completions'; method = 'POST'; url = '/chat/completions' }
-    @{ name = 'list-models'; display = 'List models'; method = 'GET'; url = '/models' }
-)
-foreach ($o in $ops) {
-    Arm PUT "/apis/openai-entra-v1/operations/$($o.name)" @{ properties = @{ displayName = $o.display; method = $o.method; urlTemplate = $o.url } } | Out-Null
+foreach ($a in $apis) {
+    Arm PUT "/apis/$($a.name)" @{ properties = @{ displayName = $a.display; path = $a.path; protocols = @('https')
+        subscriptionRequired = $false; serviceUrl = $src.properties.serviceUrl } } | Out-Null
+    foreach ($o in $a.ops) {
+        Arm PUT "/apis/$($a.name)/operations/$($o.name)" @{ properties = @{ displayName = $o.display; method = $o.method; urlTemplate = $o.url } } | Out-Null
+    }
+    $xml = Get-Content -Raw (Join-Path $PSScriptRoot "..\infra\policies\$($a.policy)")
+    Arm PUT "/apis/$($a.name)/policies/policy" @{ properties = @{ format = 'rawxml'; value = $xml } } | Out-Null
+    foreach ($d in 'applicationinsights', 'azuremonitor') {
+        try {
+            $sd = Arm GET "/apis/openai-entra/diagnostics/$d" $null 'api-version=2024-06-01-preview'
+            Arm PUT "/apis/$($a.name)/diagnostics/$d" @{ properties = $sd.properties } 'api-version=2024-06-01-preview' | Out-Null
+        } catch { Write-Warning "Diagnostics $d not copied to $($a.name): $($_.Exception.Message)" }
+    }
+    Write-Host "Ready: $(Get-PocValue 'APIM_GATEWAY_URL')/$($a.path)" -ForegroundColor Green
 }
-
-$xml = Get-Content -Raw (Join-Path $PSScriptRoot '..\infra\policies\openai-entra-v1-policy.xml')
-Arm PUT '/apis/openai-entra-v1/policies/policy' @{ properties = @{ format = 'rawxml'; value = $xml } } | Out-Null
-
-foreach ($d in 'applicationinsights', 'azuremonitor') {
-    try {
-        $sd = Arm GET "/apis/openai-entra/diagnostics/$d" $null 'api-version=2024-06-01-preview'
-        Arm PUT "/apis/openai-entra-v1/diagnostics/$d" @{ properties = $sd.properties } 'api-version=2024-06-01-preview' | Out-Null
-        Write-Host "Diagnostics $d copied"
-    } catch { Write-Warning "Diagnostics $d not copied: $($_.Exception.Message)" }
-}
-Write-Host "Ready: $(Get-PocValue 'APIM_GATEWAY_URL')/entra/v1  (POST /chat/completions, GET /models)" -ForegroundColor Green
