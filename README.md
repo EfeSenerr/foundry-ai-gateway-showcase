@@ -19,6 +19,13 @@ python create_foundry_agents.py --test    # one prompt agent per department; mod
 python run_all_smoke.py                    # PASS/FAIL end-to-end check
 ```
 
+Optional: **Open WebUI with Entra SSO -> AI Gateway**. The user's own Entra token reaches APIM, which applies per-team/per-user limits and reports per user and app, with no proxy and no shared keys. Architecture options and guidance: [docs/openwebui-entra-gateway.md](docs/openwebui-entra-gateway.md).
+```powershell
+.\scripts\setup-apim-entra-v1.ps1     # OpenAI v1 API entra/v1 on the existing APIM + named value quota-owui-user (additive)
+.\scripts\setup-openwebui-entra.ps1   # app reg portops-openwebui (SSO + Gateway.Use), secret -> openwebui\.env (git-ignored)
+docker compose -f openwebui\docker-compose.yml up -d   # http://localhost:3000
+```
+
 ## Demo commands (run from `demo\`)
 | Demo | Command |
 |---|---|
@@ -30,6 +37,7 @@ python run_all_smoke.py                    # PASS/FAIL end-to-end check
 | EUR budget -> hard stop (Logic App kill switch) | `python budget_demo.py --team cs --mode simulate` (also `--mode status` / `reset`; see [docs/budgets-and-limits.md](docs/budgets-and-limits.md)) |
 | Identity-based limits (Entra) | `python entra_limits_demo.py --user me --burst 5` (users: `ops`/`it`/`cs`/`me`; see [docs/budgets-and-limits.md](docs/budgets-and-limits.md)) |
 | MCP governance through the gateway (team keys, tool allow-list, 403, backend key) | `python mcp_governance_demo.py` (see [docs/mcp-governance.md](docs/mcp-governance.md)) |
+| Open WebUI (Entra SSO) -> per-user quota -> 403 in the chat | `..\scripts\setup-apim-entra-v1.ps1 -UserQuota 100`, chat twice at http://localhost:3000; restore with `-UserQuota 200000` (see [docs/openwebui-entra-gateway.md](docs/openwebui-entra-gateway.md)) |
 | Observability | `python ..\observability\run_queries.py` (or paste `observability\queries.kql` in Log Analytics) |
 
 Where every metric/visualization lives: [docs/where-to-see-metrics.md](docs/where-to-see-metrics.md). Further reading: [docs/resources.md](docs/resources.md).
@@ -43,11 +51,12 @@ Where every metric/visualization lives: [docs/where-to-see-metrics.md](docs/wher
 ```
 README.md  .env.sample  .gitignore
 infra/          Bicep, APIM policies, pricing/ (shared model price table)
-scripts/        setup-entra.ps1, deploy.ps1, deploy-mcp.ps1, setup-foundry-gateway.ps1, refresh-prices.ps1, teardown.ps1
-mcp/            FastMCP server (/mcp, /ops/mcp, /it/mcp, /cs/mcp; reachable only with the APIM-held x-mcp-key), synthetic data, tests
+scripts/        setup-entra.ps1, deploy.ps1, deploy-mcp.ps1, setup-foundry-gateway.ps1, refresh-prices.ps1, setup-apim-entra-v1.ps1, setup-openwebui-entra.ps1, teardown.ps1
+mcp/             FastMCP server (/mcp, /ops/mcp, /it/mcp, /cs/mcp; reachable only with the APIM-held x-mcp-key), synthetic data, tests
 demo/           CLI agent, Foundry agents, 429/500/routing demos, smoke test
+openwebui/      docker-compose for Open WebUI (Entra SSO, user token -> APIM entra/v1)
 observability/  queries.kql, run_queries.py
-docs/           architecture, budgets-and-limits, mcp-governance, cost-management, where-to-see-metrics, litellm-vs-apim, litellm-azure-integration, vnet-target, resources
+docs/           architecture, budgets-and-limits, mcp-governance, openwebui-entra-gateway, cost-management, where-to-see-metrics, litellm-vs-apim, litellm-azure-integration, vnet-target, resources
 ```
 
 ## Workshop UI (Streamlit)

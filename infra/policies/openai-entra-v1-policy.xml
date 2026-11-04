@@ -1,0 +1,137 @@
+<!--
+  API openai-entra-v1 (path entra/v1): OpenAI v1-compatible facade for Open WebUI (connection auth_type "system_oauth").
+  Open WebUI forwards the signed-in user's Entra access token (aud = portops-ai-gateway) -> validated here.
+  Team = Team.* app role (counters/quotas shared with the PoC /entra/openai API), user = oid with its own
+  named value quota-owui-user (so the per-user 403 can be demoed without touching the PoC quotas).
+  Backend: PoC pool portops-openai-pool (https://<foundry>.openai.azure.com/openai) + /v1/chat/completions, managed identity.
+-->
+<policies>
+    <inbound>
+        <base />
+        <validate-azure-ad-token tenant-id="{{entra-tenant-id}}" header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized: a valid Entra token with a Team.* role is required." output-token-variable-name="jwt">
+            <audiences>
+                <audience>api://portops-ai-gateway</audience>
+                <audience>{{entra-api-app-id}}</audience>
+            </audiences>
+            <required-claims>
+                <claim name="roles" match="any">
+                    <value>Team.Ops</value>
+                    <value>Team.IT</value>
+                    <value>Team.CS</value>
+                </claim>
+            </required-claims>
+        </validate-azure-ad-token>
+
+        <set-variable name="team" value="@{
+            var roles = ((Jwt)context.Variables["jwt"]).Claims.GetValueOrDefault("roles", new string[0]);
+            var t = roles.FirstOrDefault(r => r.StartsWith("Team."));
+            return t == null ? "none" : t.Substring(5).ToLowerInvariant();
+        }" />
+        <set-variable name="userOid" value="@(((Jwt)context.Variables["jwt"]).Claims.GetValueOrDefault("oid", new string[] { "unknown" })[0])" />
+        <set-variable name="userUpn" value="@{
+            var c = ((Jwt)context.Variables["jwt"]).Claims;
+            foreach (var k in new[] { "preferred_username", "upn", "unique_name", "oid" }) {
+                if (c.ContainsKey(k) && c[k].Length > 0) { return c[k][0]; }
+            }
+            return "unknown";
+        }" />
+        <set-variable name="clientApp" value="@{
+            var c = ((Jwt)context.Variables["jwt"]).Claims;
+            foreach (var k in new[] { "azp", "appid" }) {
+                if (c.ContainsKey(k) && c[k].Length > 0) { return c[k][0]; }
+            }
+            return "unknown";
+        }" />
+
+        <!-- GET /models: static list, no limits -->
+        <choose>
+            <when condition="@(context.Operation.Id == "list-models")">
+                <return-response>
+                    <set-status code="200" reason="OK" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>{"object":"list","data":[{"id":"gpt-4.1-mini","object":"model","owned_by":"foundry"},{"id":"gpt-4.1","object":"model","owned_by":"foundry"}]}</set-body>
+                </return-response>
+            </when>
+        </choose>
+
+        <set-header name="x-portops-team" exists-action="override">
+            <value>@((string)context.Variables["team"])</value>
+        </set-header>
+
+        <include-fragment fragment-id="portops-team-enabled" />
+
+        <!-- Team limit: same counter keys + TPM + named values as the PoC /entra/openai API (one team budget across channels) -->
+        <choose>
+            <when condition="@((string)context.Variables["team"] == "ops")">
+                <llm-token-limit counter-key="team-ops" tokens-per-minute="20000" token-quota="{{quota-team-ops}}" token-quota-period="Monthly" estimate-prompt-tokens="true" remaining-tokens-header-name="x-ratelimit-remaining-tokens" remaining-quota-tokens-header-name="x-portops-team-remaining-quota" />
+            </when>
+            <when condition="@((string)context.Variables["team"] == "it")">
+                <llm-token-limit counter-key="team-it" tokens-per-minute="2000" token-quota="{{quota-team-it}}" token-quota-period="Monthly" estimate-prompt-tokens="true" remaining-tokens-header-name="x-ratelimit-remaining-tokens" remaining-quota-tokens-header-name="x-portops-team-remaining-quota" />
+            </when>
+            <when condition="@((string)context.Variables["team"] == "cs")">
+                <llm-token-limit counter-key="team-cs" tokens-per-minute="10000" token-quota="{{quota-team-cs}}" token-quota-period="Monthly" estimate-prompt-tokens="true" remaining-tokens-header-name="x-ratelimit-remaining-tokens" remaining-quota-tokens-header-name="x-portops-team-remaining-quota" />
+            </when>
+        </choose>
+
+        <!-- User limit for Open WebUI users: own counter prefix + named value quota-owui-user -->
+        <llm-token-limit counter-key="@("owui-user-" + (string)context.Variables["userOid"])" tokens-per-minute="10000" token-quota="{{quota-owui-user}}" token-quota-period="Monthly" estimate-prompt-tokens="true" remaining-tokens-header-name="x-portops-user-remaining-tokens" remaining-quota-tokens-header-name="x-portops-user-remaining-quota" />
+
+        <!-- Model from the OpenAI v1 body; allow-list -->
+        <set-variable name="routedModel" value="@{
+            var body = context.Request.Body.As<JObject>(preserveContent: true);
+            return body?["model"]?.ToString() ?? "";
+        }" />
+        <choose>
+            <when condition="@(!new[] { "gpt-4.1-mini", "gpt-4.1" }.Contains((string)context.Variables["routedModel"]))">
+                <return-response>
+                    <set-status code="400" reason="Model not allowed" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@("{\"error\":{\"code\":\"ModelNotAllowed\",\"message\":\"Model '" + (string)context.Variables["routedModel"] + "' is not published on this gateway.\"}}")</set-body>
+                </return-response>
+            </when>
+        </choose>
+
+        <llm-emit-token-metric namespace="portops">
+            <dimension name="Department" value="@((string)context.Variables["team"])" />
+            <dimension name="Team" value="@((string)context.Variables["team"])" />
+            <dimension name="Model" value="@((string)context.Variables["routedModel"])" />
+            <dimension name="User" value="@((string)context.Variables["userUpn"])" />
+            <dimension name="ClientApp" value="@((string)context.Variables["clientApp"])" />
+        </llm-emit-token-metric>
+
+        <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
+        <set-header name="Authorization" exists-action="override">
+            <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+        </set-header>
+        <set-header name="api-key" exists-action="delete" />
+        <set-backend-service backend-id="portops-openai-pool" />
+        <rewrite-uri template="/v1/chat/completions" copy-unmatched-params="true" />
+    </inbound>
+    <backend>
+        <include-fragment fragment-id="portops-llm-backend" />
+    </backend>
+    <outbound>
+        <base />
+        <include-fragment fragment-id="portops-llm-outbound" />
+        <set-header name="x-portops-team" exists-action="override">
+            <value>@((string)context.Variables["team"])</value>
+        </set-header>
+        <set-header name="x-portops-user" exists-action="override">
+            <value>@((string)context.Variables["userUpn"])</value>
+        </set-header>
+    </outbound>
+    <on-error>
+        <base />
+        <include-fragment fragment-id="portops-llm-onerror" />
+        <set-header name="x-portops-team" exists-action="override">
+            <value>@(context.Variables.ContainsKey("team") ? (string)context.Variables["team"] : "none")</value>
+        </set-header>
+        <set-header name="x-portops-user" exists-action="override">
+            <value>@(context.Variables.ContainsKey("userUpn") ? (string)context.Variables["userUpn"] : "anonymous")</value>
+        </set-header>
+    </on-error>
+</policies>

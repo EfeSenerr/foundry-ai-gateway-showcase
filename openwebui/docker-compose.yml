@@ -1,0 +1,36 @@
+# Open WebUI (Entra SSO) -> APIM /entra/v1 with the signed-in user's Entra token (Option B).
+# Prereqs: scripts\setup-apim-entra-v1.ps1 and scripts\setup-openwebui-entra.ps1 (writes openwebui\.env).
+# Run:     docker compose -f openwebui\docker-compose.yml up -d   ->  http://localhost:3000
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:v0.13.0
+    container_name: portops-openwebui
+    ports:
+      - "3000:8080"
+    env_file: .env   # MICROSOFT_CLIENT_ID/SECRET/TENANT_ID, MICROSOFT_OAUTH_SCOPE, OPENAI_API_BASE_URLS, WEBUI_SECRET_KEY
+    environment:
+      WEBUI_URL: http://localhost:3000
+      MICROSOFT_REDIRECT_URI: http://localhost:3000/oauth/microsoft/callback
+      ENABLE_OAUTH_SIGNUP: "true"
+      ENABLE_LOGIN_FORM: "false"
+      OAUTH_MERGE_ACCOUNTS_BY_EMAIL: "true"
+      OAUTH_EMAIL_CLAIM: preferred_username
+      DEFAULT_USER_ROLE: user
+      ENABLE_PERSISTENT_CONFIG: "false"   # env is the source of truth on every restart
+      ENABLE_OLLAMA_API: "false"
+      ENABLE_OPENAI_API: "true"
+      OPENAI_API_KEYS: ""
+      # auth_type system_oauth = forward the user's Entra access token (aud portops-ai-gateway) as Bearer
+      OPENAI_API_CONFIGS: '{"0":{"enable":true,"auth_type":"system_oauth","model_ids":["gpt-4.1-mini","gpt-4.1"],"connection_type":"external","tags":[{"name":"apim-entra"}]}}'
+      ENABLE_FORWARD_USER_INFO_HEADERS: "true"
+      # background tasks (titles, tags, follow-ups) would also spend the user's quota; off for a clean demo
+      ENABLE_TITLE_GENERATION: "false"
+      ENABLE_TAGS_GENERATION: "false"
+      ENABLE_FOLLOW_UP_GENERATION: "false"
+      ENABLE_AUTOCOMPLETE_GENERATION: "false"
+    volumes:
+      - open-webui-data:/app/backend/data
+    restart: unless-stopped
+
+volumes:
+  open-webui-data:
