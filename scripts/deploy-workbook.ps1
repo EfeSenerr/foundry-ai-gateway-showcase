@@ -12,7 +12,7 @@ Get-Content (Join-Path $root '.env') | ForEach-Object {
 }
 $sub = $envMap['AZURE_SUBSCRIPTION_ID']; $rg = $envMap['AZURE_RESOURCE_GROUP']
 if (-not $WorkspaceName) {
-    $WorkspaceName = az monitor log-analytics workspace list -g $rg --query "[?customerId=='$($envMap['LOG_ANALYTICS_WORKSPACE_ID'])'].name | [0]" -o tsv
+    $WorkspaceName = az monitor log-analytics workspace list --subscription $sub -g $rg --query "[?customerId=='$($envMap['LOG_ANALYTICS_WORKSPACE_ID'])'].name | [0]" -o tsv
 }
 if (-not $WorkspaceName) { throw 'Could not resolve the Log Analytics workspace name; pass -WorkspaceName.' }
 

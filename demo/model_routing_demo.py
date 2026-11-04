@@ -30,7 +30,7 @@ def route(dept: str, name: str, q: str) -> dict:
         model="auto", max_tokens=400, messages=[{"role": "user", "content": q}])
     r = raw.parse()
     model = common.header(raw.headers, "x-portops-routed-model") or r.model or "?"
-    base = next((m for m in common.PRICES if str(model).startswith(m)), "gpt-4.1-mini")
+    base = common.price_model(model)
     return {"name": name, "model": str(model), "prompt": r.usage.prompt_tokens,
             "completion": r.usage.completion_tokens,
             "cost": common.estimate_cost(base, r.usage.prompt_tokens, r.usage.completion_tokens),
@@ -44,7 +44,7 @@ def main() -> int:
     common.load_env(("APIM_GATEWAY_URL", f"APIM_KEY_{a.dept.upper()}"))
     client = common.gateway_client(a.dept)
 
-    t = Table(title="Model routing via deployment 'auto' (cost: illustrative list price, verify)")
+    t = Table(title="Model routing via deployment 'auto' (cost: infra/pricing/model_prices.json)")
     for c in ("question", "routed model", "prompt tok", "completion tok", "est. cost USD", "apim-request-id"):
         t.add_column(c)
     routed = {}
@@ -58,7 +58,7 @@ def main() -> int:
         r = raw.parse()
         model = common.header(raw.headers, "x-portops-routed-model") or r.model or "?"
         routed[name] = model
-        base = next((m for m in common.PRICES if str(model).startswith(m)), "gpt-4.1-mini")
+        base = common.price_model(model)
         cost = common.estimate_cost(base, r.usage.prompt_tokens, r.usage.completion_tokens)
         t.add_row(name, str(model), str(r.usage.prompt_tokens), str(r.usage.completion_tokens),
                   f"{cost:.6f}", common.header(raw.headers, "apim-request-id"))

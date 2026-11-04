@@ -36,7 +36,8 @@ def load_queries() -> dict[str, str]:
             queries[name] = ""
         elif name and not line.startswith("//"):
             queries[name] += line + "\n"
-    return {k: v.strip() for k, v in queries.items() if v.strip()}
+    prices = (HERE.parent / "infra" / "pricing" / "price-table.kql").read_text(encoding="utf-8")
+    return {k: (prices + v.strip()) if "add_cost(" in v else v.strip() for k, v in queries.items() if v.strip()}
 
 
 def workspace_guid(value: str) -> str:

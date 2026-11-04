@@ -1,0 +1,2 @@
+infra/pricing/*.kql text eol=lf
+infra/pricing/*.json text eol=lf

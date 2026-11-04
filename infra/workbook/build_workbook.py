@@ -19,16 +19,23 @@ SUB = "__SUBSCRIPTION_ID__"
 RG = "__RESOURCE_GROUP__"
 SFX = "__SUFFIX__"
 
-PRICES = 'let prices = datatable(Model:string, PriceIn:double, PriceOut:double)\n  ["gpt-4.1-mini", 0.40, 1.60, "gpt-4.1", 2.00, 8.00];\n'
+# One price table for UI, spend alerts and workbook: infra/pricing/model_prices.json -> price-table.kql (demo/cost.py)
+PRICES = (HERE.parent / "pricing" / "price-table.kql").read_text(encoding="utf-8").replace("\r\n", "\n")
+COST_NAMES = '| where Name in ("Prompt Tokens", "Prompt Cached Tokens", "Cache Creation Tokens", "Completion Tokens")\n'
+
+
+def tok_cost(keys: str, conservative: bool = False) -> str:
+    """Sum the four token types per keys + Model and price them with add_cost (from price-table.kql)."""
+    return (f'| summarize Prompt = sumif(Sum, Name == "Prompt Tokens"), Cached = sumif(Sum, Name == "Prompt Cached Tokens"), '
+            f'CacheWrite = sumif(Sum, Name == "Cache Creation Tokens"), Output = sumif(Sum, Name == "Completion Tokens") by {keys}\n'
+            f'| invoke add_cost({str(conservative).lower()})\n')
 MODEL_NORM = ('| extend Model = iff(ModelRaw startswith "gpt-4.1-mini", "gpt-4.1-mini", '
               'iff(ModelRaw startswith "gpt-4.1", "gpt-4.1", ModelRaw))\n')
 METRIC_BASE = ('AppMetrics\n| extend Department = tostring(Properties["Department"]), '
                'ModelRaw = tostring(Properties["Model"])\n| where Department in ({Department})\n')
 GW = 'ApiManagementGatewayLogs\n| where ProductId in ({Department})\n'
-COST = (PRICES + METRIC_BASE + '| where Name in ("Prompt Tokens", "Completion Tokens")\n' + MODEL_NORM +
-        '| summarize Prompt = sumif(Sum, Name == "Prompt Tokens"), Completion = sumif(Sum, Name == "Completion Tokens") by Department, Model\n'
-        '| join kind=leftouter prices on Model\n'
-        '| extend EstCostUSD = round(Prompt / 1e6 * PriceIn + Completion / 1e6 * PriceOut, 4)\n')
+COST = (PRICES + METRIC_BASE + COST_NAMES + MODEL_NORM + tok_cost("Department, Model") +
+        '| extend EstCostUSD = round(EstCost, 4)\n')
 
 items: list[dict] = []
 queries: list[tuple[str, str]] = []
@@ -100,8 +107,9 @@ items.append({"type": 9, "name": "parameters", "content": {
 md("# PortOps AI Gateway – Cost & Operations\n"
    "Live view of the Azure API Management **AI Gateway** in front of Microsoft Foundry. Gateway logs and "
    "token metrics arrive in Log Analytics ~2–5 min after a call. Departments = APIM products "
-   "(`dept-ops`, `dept-it`, `dept-cs`). **Costs below are estimates from an illustrative list price** "
-   "(gpt-4.1-mini $0.40 in / $1.60 out, gpt-4.1 $2.00 / $8.00 per 1M tokens); the actual bill is in "
+   "(`dept-ops`, `dept-it`, `dept-cs`). **Costs below are estimates**: tokens per type (input, cached, cache write, output) × the price table "
+   "`infra/pricing/model_prices.json` (the same table as the UI page *Cost & usage* and the spend alerts). "
+   "`UnpricedTokens` > 0 means a model or token type has no price - the estimate is incomplete. The actual bill is in "
    "Cost Management.")
 
 # ---- a. KPIs ----------------------------------------------------------------------------
@@ -109,16 +117,13 @@ heading("1. Key numbers")
 kpi = (PRICES +
        "let tok = " + METRIC_BASE +
        '| where Name == "Total Tokens" | summarize v = sum(Sum);\n'
-       "let cost = " + METRIC_BASE + '| where Name in ("Prompt Tokens", "Completion Tokens")\n' + MODEL_NORM +
-       '| summarize Prompt = sumif(Sum, Name == "Prompt Tokens"), Completion = sumif(Sum, Name == "Completion Tokens") by Model\n'
-       '| join kind=leftouter prices on Model\n'
-       '| summarize v = sum(Prompt / 1e6 * PriceIn + Completion / 1e6 * PriceOut);\n'
+       "let cost = " + METRIC_BASE + COST_NAMES + MODEL_NORM + tok_cost("Model") + '| summarize v = sum(EstCost);\n'
        "let gw = " + GW + "| summarize req = count(), r429 = countif(ResponseCode == 429), r5xx = countif(ResponseCode >= 500);\n"
        "union (gw | project Metric = \"1 Requests\", Value = todouble(req)),\n"
        "      (gw | project Metric = \"4 HTTP 429 (throttled)\", Value = todouble(r429)),\n"
        "      (gw | project Metric = \"5 HTTP 5xx\", Value = todouble(r5xx)),\n"
        "      (tok | project Metric = \"2 Total tokens\", Value = todouble(v)),\n"
-       "      (cost | project Metric = \"3 Est. cost USD (illustrative)\", Value = todouble(round(v, 4)))\n"
+       "      (cost | project Metric = \"3 Est. cost (price table)\", Value = todouble(round(v, 4)))\n"
        "| extend Metric = substring(Metric, 2)\n| order by Metric asc")
 kpi = kpi.replace("| extend Metric = substring(Metric, 2)\n| order by Metric asc",
                   "| order by Metric asc\n| extend Metric = substring(Metric, 2)")
@@ -145,11 +150,11 @@ q("Tokens per model",
 
 # ---- c. cost -----------------------------------------------------------------------------
 heading("3. Estimated cost per department (chargeback)")
-md("_Estimate = tokens × illustrative list price. The **actual** bill: Cost Management → Cost analysis → "
+md("_Estimate = tokens per type × price table. The **actual** bill: Cost Management → Cost analysis → "
    "group by tag `project` (and by resource / meter). Tokens are the per-department driver; the `project` tag "
    "is the per-Foundry-project chargeback key._")
-q("Estimated cost per department and model (USD, illustrative)",
-  COST + "| project Department, Model, Prompt, Completion, EstCostUSD\n| order by EstCostUSD desc", "table", 1,
+q("Estimated cost per department and model",
+  COST + "| project Department, Model, Prompt, Cached, CacheWrite, Output, EstCostUSD, UnpricedTokens\n| order by EstCostUSD desc", "table", 1,
   {"gridSettings": {"formatters": [{"columnMatch": "EstCostUSD", "formatter": 8, "formatOptions": {"palette": "greenRed"}}]}})
 q("Estimated cost per department (USD)",
   COST + "| summarize EstCostUSD = sum(EstCostUSD) by Department\n| order by EstCostUSD desc", "barchart", 1,
@@ -241,22 +246,23 @@ TEAM = ('| extend Team = iff(isnotempty(tostring(Properties["Team"])), tostring(
 USERX = ('| extend User = iff(isnotempty(tostring(Properties["User"])), tostring(Properties["User"]), "(department key - no user)")\n')
 APPX = ('| extend ClientApp = case(isnotempty(tostring(Properties["ClientApp"])), tostring(Properties["ClientApp"]), '
         'isnotempty(tostring(Properties["Subscription ID"])), tostring(Properties["Subscription ID"]), "(unknown)")\n')
-TOK_BASE = ('AppMetrics\n| where Name in ("Prompt Tokens", "Completion Tokens", "Total Tokens")\n'
+TOK_BASE = ('AppMetrics\n| where Name in ("Prompt Tokens", "Prompt Cached Tokens", "Cache Creation Tokens", "Completion Tokens", "Total Tokens")\n'
             '| extend ModelRaw = tostring(Properties["Model"])\n' + MODEL_NORM + TEAM + USERX + APPX)
 
 
 def cost_by(keys: str, extra_where: str = "") -> str:
     return (PRICES + TOK_BASE + extra_where +
-            f'| summarize Prompt = sumif(Sum, Name == "Prompt Tokens"), Completion = sumif(Sum, Name == "Completion Tokens"), '
+            f'| summarize Prompt = sumif(Sum, Name == "Prompt Tokens"), Cached = sumif(Sum, Name == "Prompt Cached Tokens"), '
+            f'CacheWrite = sumif(Sum, Name == "Cache Creation Tokens"), Output = sumif(Sum, Name == "Completion Tokens"), '
             f'Total = sumif(Sum, Name == "Total Tokens") by {keys}, Model\n'
-            '| join kind=leftouter prices on Model\n'
-            '| extend EstCostUSD = round(Prompt / 1e6 * coalesce(PriceIn, 0.40) + Completion / 1e6 * coalesce(PriceOut, 1.60), 4)\n'
-            f'| summarize Prompt = sum(Prompt), Completion = sum(Completion), Total = sum(Total), EstCostUSD = round(sum(EstCostUSD), 4) by {keys}\n')
+            '| invoke add_cost(false)\n'
+            f'| summarize Prompt = sum(Prompt), Cached = sum(Cached), Output = sum(Output), Total = sum(Total), '
+            f'EstCostUSD = round(sum(EstCost), 4), UnpricedTokens = sum(UnpricedTokens) by {keys}\n')
 
 
 heading("8. Per user and team (Entra API)")
 md("Calls through `/entra/openai` carry the signed-in **User** and **Team** (Entra group) as metric dimensions. "
-   "Key-based department calls have no user and show up as `(department key - no user)`. Costs are illustrative estimates.")
+   "Key-based department calls have no user and show up as `(department key - no user)`. Costs are estimates from the price table.")
 q("Tokens and est. cost per team",
   cost_by("Team") + "| order by EstCostUSD desc", "table", 1,
   {"gridSettings": {"formatters": [{"columnMatch": "EstCostUSD", "formatter": 8, "formatOptions": {"palette": "greenRed"}}]}},
@@ -343,13 +349,11 @@ wide()
 heading("12. Budget enforcement")
 md("The budget enforcer (Logic App `la-portops-budget-enforcer`) flips the APIM named value `team-<team>-enabled` "
    "when a spend alert fires; the gateway then answers **403 TeamBudgetExhausted**. Thresholds below are the "
-   "spend-alert limits (ops 5 / it 1 / cs 2 USD per day, illustrative estimate).")
+   "spend-alert limits (ops 5 / it 1 / cs 2 per day). Same formula as the alert: unknown prices count at the highest known price.")
 q("Estimated spend today (UTC) per team vs spend-alert threshold",
   PRICES + "let thr = datatable(Team:string, ThresholdUSD:double) [\"ops\", 5.0, \"it\", 1.0, \"cs\", 2.0];\n"
-  + TOK_BASE + '| where TimeGenerated >= startofday(now()) and Name in ("Prompt Tokens", "Completion Tokens")\n'
-  '| summarize Prompt = sumif(Sum, Name == "Prompt Tokens"), Completion = sumif(Sum, Name == "Completion Tokens") by Team, Model\n'
-  '| join kind=leftouter prices on Model\n'
-  '| summarize EstUSDToday = round(sum(Prompt / 1e6 * coalesce(PriceIn, 0.40) + Completion / 1e6 * coalesce(PriceOut, 1.60)), 4) by Team\n'
+  + TOK_BASE + '| where TimeGenerated >= startofday(now())\n' + COST_NAMES + tok_cost("Team, Model", conservative=True) +
+  '| summarize EstUSDToday = round(sum(EstCost), 4) by Team\n'
   '| join kind=rightouter thr on Team\n'
   '| project Team = Team1, EstUSDToday = coalesce(EstUSDToday, 0.0), ThresholdUSD\n'
   '| extend PctOfThreshold = round(100.0 * EstUSDToday / ThresholdUSD, 1), '
@@ -396,21 +400,26 @@ out.write_text(json.dumps(workbook, indent=2), encoding="utf-8")
 print(f"wrote {out} ({len(queries)} queries)")
 
 if "--validate" in sys.argv:
-    from datetime import timedelta
-    from azure.identity import AzureCliCredential
-    from azure.monitor.query import LogsQueryClient, LogsQueryStatus
-    from dotenv import dotenv_values
-    ws = dotenv_values(HERE.parent.parent / ".env")["LOG_ANALYTICS_WORKSPACE_ID"]
-    client = LogsQueryClient(AzureCliCredential())
+    import requests
+    sys.path.insert(0, str(HERE.parent.parent / "demo"))
+    import common
+    common.load_env()
+    import cost
+    ws = common.env("LOG_ANALYTICS_WORKSPACE_ID")
+    token = cost._token("https://api.loganalytics.io")
     bad = 0
     for name, kql in queries:
         k = kql.replace("{Department}", "'dept-ops','dept-it','dept-cs'")
         rid_val = sys.argv[sys.argv.index("--rid") + 1] if "--rid" in sys.argv else "00000000-0000-0000-0000-000000000000"
         k = k.replace("{RequestId}", rid_val)
         try:
-            r = client.query_workspace(ws, k, timespan=timedelta(days=7))
-            rows = len(r.tables[0].rows) if r.tables else 0
-            print(f"OK   {name:16} rows={rows}" + ("" if r.status == LogsQueryStatus.SUCCESS else " PARTIAL"))
+            resp = requests.post(f"https://api.loganalytics.io/v1/workspaces/{ws}/query",
+                                 headers={"Authorization": f"Bearer {token}"}, json={"query": k, "timespan": "P7D"}, timeout=120)
+            if resp.status_code != 200:
+                raise RuntimeError(resp.text)
+            tables = resp.json().get("tables", [])
+            rows = len(tables[0]["rows"]) if tables else 0
+            print(f"OK   {name:16} rows={rows}")
         except Exception as e:
             bad += 1
             print(f"FAIL {name:16} {str(e)[:300]}")

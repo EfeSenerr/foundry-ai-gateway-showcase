@@ -1,0 +1,24 @@
+// PRICES-BEGIN generated from infra/pricing/model_prices.json (USD per 1M tokens) - do not edit
+let prices = datatable(Model:string, PIn:real, PCached:real, PWrite:real, POut:real) [
+    "gpt-4.1", 2.2, 0.55, real(null), 8.8,
+    "gpt-4.1-mini", 0.44, 0.11, real(null), 1.76,
+    "gpt-6-astra", 12.0, 1.2, 15.0, 60.0,
+    "gpt-6-luna", 0.12, 0.012, 0.15, 0.6,
+    "gpt-6-sol", 2.4, 0.24, 3.0, 12.0];
+let maxIn = toscalar(prices | summarize max(PIn)); let maxCached = toscalar(prices | summarize max(PCached));
+let maxWrite = toscalar(prices | summarize max(PWrite)); let maxOut = toscalar(prices | summarize max(POut));
+// add_cost(conservative): conservative=true prices unknown tokens at the highest known price (enforcement);
+// false leaves them out of EstCost and counts them in UnpricedTokens (reporting).
+let add_cost = (T:(Model:string, Prompt:real, Cached:real, CacheWrite:real, Output:real), conservative:bool) {
+    T
+    | lookup kind=leftouter prices on Model
+    | extend Uncached = max_of(Prompt - Cached - CacheWrite, 0.0)
+    | extend fIn = iff(conservative, coalesce(PIn, maxIn, 0.0), PIn), fCached = iff(conservative, coalesce(PCached, maxCached, maxIn, 0.0), PCached),
+             fWrite = iff(conservative, coalesce(PWrite, maxWrite, maxIn, 0.0), PWrite), fOut = iff(conservative, coalesce(POut, maxOut, 0.0), POut)
+    | extend EstCost = (iff(Uncached > 0, Uncached * coalesce(fIn, 0.0), 0.0) + iff(Cached > 0, Cached * coalesce(fCached, 0.0), 0.0)
+                      + iff(CacheWrite > 0, CacheWrite * coalesce(fWrite, 0.0), 0.0) + iff(Output > 0, Output * coalesce(fOut, 0.0), 0.0)) / 1e6
+    | extend UnpricedTokens = iff(isnull(fIn), Uncached, 0.0) + iff(Cached > 0 and isnull(fCached), Cached, 0.0)
+                            + iff(CacheWrite > 0 and isnull(fWrite), CacheWrite, 0.0) + iff(isnull(fOut), Output, 0.0)
+    | project-away PIn, PCached, PWrite, POut, fIn, fCached, fWrite, fOut, Uncached
+};
+// PRICES-END
