@@ -1,0 +1,253 @@
+<!--
+  API openai-entra-agents (path entra/agents/v1): Foundry agents for Open WebUI (connection api_type "responses",
+  auth_type "system_oauth"). The model id selects an agent; the agent is invoked AS THE USER:
+    validate user token (aud = gateway) -> team/user -> entitlement (team == agent's project) -> team + user quotas
+    -> OBO exchange: user token -> user token for https://ai.azure.com (client = gateway app, client assertion = APIM MI
+       via federated credential, no secret; cached per user) -> Foundry checks the user's RBAC (Foundry User on project)
+    -> hosted agent: /agents/<name>/endpoint/protocols/openai/responses ; prompt agent: /openai/v1/responses + agent_reference
+-->
+<policies>
+    <inbound>
+        <base />
+        <validate-azure-ad-token tenant-id="{{entra-tenant-id}}" header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized: a valid Entra token with a Team.* role is required." output-token-variable-name="jwt">
+            <audiences>
+                <audience>api://portops-ai-gateway</audience>
+                <audience>{{entra-api-app-id}}</audience>
+            </audiences>
+            <required-claims>
+                <claim name="roles" match="any">
+                    <value>Team.Ops</value>
+                    <value>Team.IT</value>
+                    <value>Team.CS</value>
+                </claim>
+            </required-claims>
+        </validate-azure-ad-token>
+
+        <set-variable name="team" value="@{
+            var roles = ((Jwt)context.Variables["jwt"]).Claims.GetValueOrDefault("roles", new string[0]);
+            var t = roles.FirstOrDefault(r => r.StartsWith("Team."));
+            return t == null ? "none" : t.Substring(5).ToLowerInvariant();
+        }" />
+        <set-variable name="userOid" value="@(((Jwt)context.Variables["jwt"]).Claims.GetValueOrDefault("oid", new string[] { "unknown" })[0])" />
+        <set-variable name="userUpn" value="@{
+            var c = ((Jwt)context.Variables["jwt"]).Claims;
+            foreach (var k in new[] { "preferred_username", "upn", "unique_name", "oid" }) {
+                if (c.ContainsKey(k) && c[k].Length > 0) { return c[k][0]; }
+            }
+            return "unknown";
+        }" />
+        <set-variable name="clientApp" value="@{
+            var c = ((Jwt)context.Variables["jwt"]).Claims;
+            foreach (var k in new[] { "azp", "appid" }) {
+                if (c.ContainsKey(k) && c[k].Length > 0) { return c[k][0]; }
+            }
+            return "unknown";
+        }" />
+
+        <!-- Agent catalog: model id -> project|agent|kind -->
+        <set-variable name="catalog" value="ops-hosted-agent=ops|agent-framework-agent-basic-responses|hosted;ops-assistant=ops|portops-ops-assistant|prompt;it-assistant=it|portops-it-assistant|prompt;cs-assistant=cs|portops-cs-assistant|prompt" />
+
+        <choose>
+            <when condition="@(context.Operation.Id == "list-models")">
+                <return-response>
+                    <set-status code="200" reason="OK" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        var team = (string)context.Variables["team"];
+                        var data = new JArray();
+                        foreach (var e in ((string)context.Variables["catalog"]).Split(';')) {
+                            var kv = e.Split('='); var spec = kv[1].Split('|');
+                            if (spec[0] == team) { data.Add(new JObject(new JProperty("id", kv[0]), new JProperty("object", "model"), new JProperty("owned_by", "foundry-agent-" + spec[2]))); }
+                        }
+                        return new JObject(new JProperty("object", "list"), new JProperty("data", data)).ToString();
+                    }</set-body>
+                </return-response>
+            </when>
+        </choose>
+
+        <set-variable name="body" value="@(context.Request.Body.As<JObject>(preserveContent: true))" />
+        <set-variable name="routedModel" value="@(((JObject)context.Variables["body"])["model"]?.ToString() ?? "")" />
+        <set-variable name="agentSpec" value="@{
+            var m = (string)context.Variables["routedModel"];
+            foreach (var e in ((string)context.Variables["catalog"]).Split(';')) {
+                var kv = e.Split('=');
+                if (kv[0] == m) { return kv[1]; }
+            }
+            return "";
+        }" />
+        <choose>
+            <when condition="@(string.IsNullOrEmpty((string)context.Variables["agentSpec"]))">
+                <return-response>
+                    <set-status code="404" reason="Agent not found" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@("{\"error\":{\"code\":\"AgentNotFound\",\"message\":\"No agent is published as '" + (string)context.Variables["routedModel"] + "'.\"}}")</set-body>
+                </return-response>
+            </when>
+            <when condition="@(((string)context.Variables["agentSpec"]).Split('|')[0] != (string)context.Variables["team"])">
+                <return-response>
+                    <set-status code="403" reason="Agent not allowed for team" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@("{\"error\":{\"code\":\"AgentNotAllowed\",\"message\":\"Agent '" + (string)context.Variables["routedModel"] + "' belongs to another team.\"}}")</set-body>
+                </return-response>
+            </when>
+        </choose>
+        <set-variable name="project" value="@(((string)context.Variables["agentSpec"]).Split('|')[0])" />
+        <set-variable name="agentName" value="@(((string)context.Variables["agentSpec"]).Split('|')[1])" />
+        <set-variable name="agentKind" value="@(((string)context.Variables["agentSpec"]).Split('|')[2])" />
+
+        <set-header name="x-portops-team" exists-action="override">
+            <value>@((string)context.Variables["team"])</value>
+        </set-header>
+        <include-fragment fragment-id="portops-team-enabled" />
+
+        <!-- Same team counters/quotas as the model APIs; same per-user counter as Open WebUI models -->
+        <choose>
+            <when condition="@((string)context.Variables["team"] == "ops")">
+                <llm-token-limit counter-key="team-ops" tokens-per-minute="20000" token-quota="{{quota-team-ops}}" token-quota-period="Monthly" estimate-prompt-tokens="true" remaining-tokens-header-name="x-ratelimit-remaining-tokens" remaining-quota-tokens-header-name="x-portops-team-remaining-quota" />
+            </when>
+            <when condition="@((string)context.Variables["team"] == "it")">
+                <llm-token-limit counter-key="team-it" tokens-per-minute="2000" token-quota="{{quota-team-it}}" token-quota-period="Monthly" estimate-prompt-tokens="true" remaining-tokens-header-name="x-ratelimit-remaining-tokens" remaining-quota-tokens-header-name="x-portops-team-remaining-quota" />
+            </when>
+            <when condition="@((string)context.Variables["team"] == "cs")">
+                <llm-token-limit counter-key="team-cs" tokens-per-minute="10000" token-quota="{{quota-team-cs}}" token-quota-period="Monthly" estimate-prompt-tokens="true" remaining-tokens-header-name="x-ratelimit-remaining-tokens" remaining-quota-tokens-header-name="x-portops-team-remaining-quota" />
+            </when>
+        </choose>
+        <llm-token-limit counter-key="@("owui-user-" + (string)context.Variables["userOid"])" tokens-per-minute="10000" token-quota="{{quota-owui-user}}" token-quota-period="Monthly" estimate-prompt-tokens="true" remaining-tokens-header-name="x-portops-user-remaining-tokens" remaining-quota-tokens-header-name="x-portops-user-remaining-quota" />
+
+        <llm-emit-token-metric namespace="portops">
+            <dimension name="Department" value="@((string)context.Variables["team"])" />
+            <dimension name="Team" value="@((string)context.Variables["team"])" />
+            <dimension name="Model" value="@("agent:" + (string)context.Variables["agentName"])" />
+            <dimension name="User" value="@((string)context.Variables["userUpn"])" />
+            <dimension name="ClientApp" value="@((string)context.Variables["clientApp"])" />
+        </llm-emit-token-metric>
+
+        <!-- OBO: user token (aud = gateway) -> user token for Foundry; cached per user -->
+        <cache-lookup-value key="@("obo-ai-" + (string)context.Variables["userOid"])" variable-name="oboToken" />
+        <choose>
+            <when condition="@(!context.Variables.ContainsKey("oboToken"))">
+                <authentication-managed-identity resource="api://AzureADTokenExchange" output-token-variable-name="miAssertion" ignore-error="false" />
+                <send-request mode="new" response-variable-name="oboResponse" timeout="20" ignore-error="false">
+                    <set-url>https://login.microsoftonline.com/{{entra-tenant-id}}/oauth2/v2.0/token</set-url>
+                    <set-method>POST</set-method>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/x-www-form-urlencoded</value>
+                    </set-header>
+                    <set-body>@{
+                        var userToken = context.Request.Headers.GetValueOrDefault("Authorization", "").Replace("Bearer ", "").Trim();
+                        return "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer"
+                            + "&client_id={{entra-api-app-id}}"
+                            + "&client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer"
+                            + "&client_assertion=" + (string)context.Variables["miAssertion"]
+                            + "&assertion=" + userToken
+                            + "&scope=" + Uri.EscapeDataString("https://ai.azure.com/.default")
+                            + "&requested_token_use=on_behalf_of";
+                    }</set-body>
+                </send-request>
+                <choose>
+                    <when condition="@(((IResponse)context.Variables["oboResponse"]).StatusCode != 200)">
+                        <return-response>
+                            <set-status code="502" reason="OBO token exchange failed" />
+                            <set-header name="Content-Type" exists-action="override">
+                                <value>application/json</value>
+                            </set-header>
+                            <set-body>@{
+                                var r = ((IResponse)context.Variables["oboResponse"]).Body.As<JObject>();
+                                return new JObject(new JProperty("error", new JObject(
+                                    new JProperty("code", "OboFailed"),
+                                    new JProperty("message", (string)r["error_description"] ?? "token exchange failed")))).ToString();
+                            }</set-body>
+                        </return-response>
+                    </when>
+                </choose>
+                <set-variable name="oboJson" value="@(((IResponse)context.Variables["oboResponse"]).Body.As<JObject>())" />
+                <set-variable name="oboToken" value="@((string)((JObject)context.Variables["oboJson"])["access_token"])" />
+                <cache-store-value key="@("obo-ai-" + (string)context.Variables["userOid"])" value="@((string)context.Variables["oboToken"])" duration="@(Math.Max(60, (int)((JObject)context.Variables["oboJson"])["expires_in"] - 300))" />
+            </when>
+        </choose>
+        <set-header name="Authorization" exists-action="override">
+            <value>@("Bearer " + (string)context.Variables["oboToken"])</value>
+        </set-header>
+
+        <!-- Body for agents: the agent owns its instructions/tools/params, so only the conversation is forwarded.
+             Open WebUI replays stored Responses output items (ids, status, annotations, reasoning/tool items) on later
+             turns; hosted agents validate strictly, so the history is normalized to plain role/text messages. -->
+        <set-body>@{
+            var src = (JObject)context.Variables["body"];
+            var b = new JObject();
+            var input = src["input"];
+            if (input is JArray) {
+                var msgs = new JArray();
+                foreach (var item in (JArray)input) {
+                    var role = (string)item["role"];
+                    var type = (string)item["type"] ?? "message";
+                    if (role == null || type != "message") { continue; }
+                    if (role == "system" || role == "developer") { continue; }
+                    string text;
+                    var content = item["content"];
+                    if (content is JArray) {
+                        text = string.Join("\n", ((JArray)content).Where(p => p["text"] != null).Select(p => (string)p["text"]));
+                    } else {
+                        text = (string)content ?? "";
+                    }
+                    if (string.IsNullOrWhiteSpace(text)) { continue; }
+                    msgs.Add(new JObject(new JProperty("role", role == "assistant" ? "assistant" : "user"), new JProperty("content", text)));
+                }
+                b["input"] = msgs;
+            } else if (input != null) {
+                b["input"] = input.DeepClone();
+            }
+            if (src["stream"] != null) { b["stream"] = src["stream"].DeepClone(); }
+            if ((string)context.Variables["agentKind"] == "prompt") {
+                b["agent_reference"] = new JObject(new JProperty("name", (string)context.Variables["agentName"]), new JProperty("type", "agent_reference"));
+            }
+            return b.ToString();
+        }</set-body>
+        <set-backend-service base-url="@("https://{{foundry-services-host}}/api/projects/" + (string)context.Variables["project"])" />
+        <choose>
+            <when condition="@((string)context.Variables["agentKind"] == "hosted")">
+                <rewrite-uri template="@("/agents/" + (string)context.Variables["agentName"] + "/endpoint/protocols/openai/responses")" copy-unmatched-params="false" />
+                <set-query-parameter name="api-version" exists-action="override">
+                    <value>v1</value>
+                </set-query-parameter>
+            </when>
+            <otherwise>
+                <rewrite-uri template="/openai/v1/responses" copy-unmatched-params="false" />
+            </otherwise>
+        </choose>
+    </inbound>
+    <backend>
+        <forward-request timeout="300" buffer-response="false" />
+    </backend>
+    <outbound>
+        <base />
+        <set-header name="x-portops-team" exists-action="override">
+            <value>@((string)context.Variables["team"])</value>
+        </set-header>
+        <set-header name="x-portops-user" exists-action="override">
+            <value>@((string)context.Variables["userUpn"])</value>
+        </set-header>
+        <set-header name="x-portops-agent" exists-action="override">
+            <value>@((string)context.Variables["agentName"])</value>
+        </set-header>
+        <set-header name="apim-request-id" exists-action="override">
+            <value>@(context.RequestId.ToString())</value>
+        </set-header>
+    </outbound>
+    <on-error>
+        <base />
+        <include-fragment fragment-id="portops-llm-onerror" />
+        <set-header name="x-portops-team" exists-action="override">
+            <value>@(context.Variables.ContainsKey("team") ? (string)context.Variables["team"] : "none")</value>
+        </set-header>
+        <set-header name="x-portops-user" exists-action="override">
+            <value>@(context.Variables.ContainsKey("userUpn") ? (string)context.Variables["userUpn"] : "anonymous")</value>
+        </set-header>
+    </on-error>
+</policies>

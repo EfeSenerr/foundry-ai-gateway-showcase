@@ -1,0 +1,25 @@
+{
+  "_comment": "Who sees what in Open WebUI. Groups = Entra app roles on the Open WebUI app (synced at login). APIM enforces the same rules (team quota, agent entitlement) and Foundry RBAC enforces project access for agents.",
+  "groups": [
+    { "name": "Team.Ops", "description": "Terminal operations (Entra: sg-portops-team-ops)" },
+    { "name": "Team.IT", "description": "IT / log analysis (Entra: sg-portops-team-it)" },
+    { "name": "Team.CS", "description": "Customer service (Entra: sg-portops-team-cs)" }
+  ],
+  "models": [
+    { "id": "gpt-6-luna", "name": "GPT-6 Luna", "description": "Raw model via AI Gateway (all teams).", "groups": ["Team.Ops", "Team.IT", "Team.CS"], "tags": ["model"] },
+    { "id": "gpt-4.1-mini", "name": "GPT-4.1 mini", "description": "Raw model via AI Gateway (all teams).", "groups": ["Team.Ops", "Team.IT", "Team.CS"], "tags": ["model"] },
+    { "id": "gpt-4.1", "name": "GPT-4.1", "description": "Larger raw model, Ops only.", "groups": ["Team.Ops"], "tags": ["model"] },
+
+    { "id": "ops-hosted-agent", "name": "Ops · Hosted agent (Agent Framework)", "description": "Foundry hosted agent (code, Agent Framework) in project ops; runs as you (OBO).", "groups": ["Team.Ops"], "tags": ["agent", "hosted"] },
+    { "id": "ops-assistant", "name": "Ops · Terminal Ops Assistant", "description": "Foundry prompt agent with the ops MCP tools (vessels, berths, cranes); runs as you (OBO).", "groups": ["Team.Ops"], "tags": ["agent"] },
+    { "id": "it-assistant", "name": "IT · Log Analyst", "description": "Foundry prompt agent with the IT MCP tools (incidents, logs); runs as you (OBO).", "groups": ["Team.IT"], "tags": ["agent"] },
+    { "id": "cs-assistant", "name": "CS · Customer Service Assistant", "description": "Foundry prompt agent with the CS MCP tools (containers, truck slots); runs as you (OBO).", "groups": ["Team.CS"], "tags": ["agent"] },
+
+    { "id": "ops-shift-handover", "base_model_id": "gpt-6-luna", "name": "Ops · Shift handover writer", "description": "Workspace model: GPT-6 Luna + system prompt.", "groups": ["Team.Ops"], "tags": ["use-case"],
+      "system": "You write concise shift handover notes for a container terminal. Structure: Safety, Vessels, Yard, Equipment, Open issues. Bullet points, max 12 lines." },
+    { "id": "it-incident-summarizer", "base_model_id": "gpt-6-luna", "name": "IT · Incident summarizer", "description": "Workspace model: GPT-6 Luna + system prompt.", "groups": ["Team.IT"], "tags": ["use-case"],
+      "system": "You summarize IT incidents for a management update: impact, root cause (if known), current status, next step, owner. Max 6 lines, no speculation." },
+    { "id": "cs-reply-drafter", "base_model_id": "gpt-4.1-mini", "name": "CS · Customer reply drafter", "description": "Workspace model: GPT-4.1 mini + system prompt.", "groups": ["Team.CS"], "tags": ["use-case"],
+      "system": "You draft polite, short customer replies (German or English, matching the customer) about container status, truck slots and delays. Never promise times you were not given." }
+  ]
+}

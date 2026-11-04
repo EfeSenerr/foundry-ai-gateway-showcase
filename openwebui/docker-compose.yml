@@ -1,5 +1,9 @@
-# Open WebUI (Entra SSO) -> APIM /entra/v1 with the signed-in user's Entra token (Option B).
-# Prereqs: scripts\setup-apim-entra-v1.ps1 and scripts\setup-openwebui-entra.ps1 (writes openwebui\.env).
+# Open WebUI (Entra SSO) -> APIM with the signed-in user's Entra token.
+#   connection 0: raw models  -> APIM entra/v1         (Chat Completions)
+#   connection 1: agents      -> APIM entra/agents/v1  (Responses API; APIM calls the Foundry agent on behalf of the user)
+#   connection 2: reasoning models (gpt-6-*) -> APIM entra/v1 Responses API (tools + reasoning are not allowed together on chat/completions)
+# Prereqs: scripts\setup-apim-entra-v1.ps1, scripts\setup-openwebui-entra.ps1 (writes openwebui\.env),
+#          scripts\setup-openwebui-agents.ps1 (OBO + RBAC + Team.* roles); then scripts\setup-openwebui-catalog.ps1
 # Run:     docker compose -f openwebui\docker-compose.yml up -d   ->  http://localhost:3000
 services:
   open-webui:
@@ -7,7 +11,7 @@ services:
     container_name: portops-openwebui
     ports:
       - "3000:8080"
-    env_file: .env   # MICROSOFT_CLIENT_ID/SECRET/TENANT_ID, MICROSOFT_OAUTH_SCOPE, OPENAI_API_BASE_URLS, WEBUI_SECRET_KEY
+    env_file: .env   # MICROSOFT_CLIENT_ID/SECRET/TENANT_ID, MICROSOFT_OAUTH_SCOPE, APIM_GATEWAY_URL, WEBUI_SECRET_KEY
     environment:
       WEBUI_URL: http://localhost:3000
       MICROSOFT_REDIRECT_URI: http://localhost:3000/oauth/microsoft/callback
@@ -16,12 +20,18 @@ services:
       OAUTH_MERGE_ACCOUNTS_BY_EMAIL: "true"
       OAUTH_EMAIL_CLAIM: preferred_username
       DEFAULT_USER_ROLE: user
+      # Entra app roles Team.Ops/IT/CS (on the Open WebUI app) -> Open WebUI groups of the same name (synced at each login)
+      ENABLE_OAUTH_GROUP_MANAGEMENT: "true"
+      ENABLE_OAUTH_GROUP_CREATION: "true"
+      OAUTH_GROUP_CLAIM: roles
       ENABLE_PERSISTENT_CONFIG: "false"   # env is the source of truth on every restart
       ENABLE_OLLAMA_API: "false"
       ENABLE_OPENAI_API: "true"
-      OPENAI_API_KEYS: ""
-      # auth_type system_oauth = forward the user's Entra access token (aud portops-ai-gateway) as Bearer
-      OPENAI_API_CONFIGS: '{"0":{"enable":true,"auth_type":"system_oauth","model_ids":["gpt-4.1-mini","gpt-4.1"],"connection_type":"external","tags":[{"name":"apim-entra"}]}}'
+      OPENAI_API_BASE_URLS: "${APIM_GATEWAY_URL}/entra/v1;${APIM_GATEWAY_URL}/entra/agents/v1;${APIM_GATEWAY_URL}/entra/v1"
+      OPENAI_API_KEYS: ";;"
+      # auth_type system_oauth = forward the user's Entra access token (aud portops-ai-gateway) as Bearer.
+      # Which user sees which model/agent is decided by Open WebUI access grants (openwebui\catalog.json) AND enforced by APIM.
+      OPENAI_API_CONFIGS: '{"0":{"enable":true,"auth_type":"system_oauth","model_ids":["gpt-4.1-mini","gpt-4.1"],"connection_type":"external","tags":[{"name":"model"}]},"1":{"enable":true,"auth_type":"system_oauth","api_type":"responses","model_ids":["ops-hosted-agent","ops-assistant","it-assistant","cs-assistant"],"connection_type":"external","tags":[{"name":"agent"}]},"2":{"enable":true,"auth_type":"system_oauth","api_type":"responses","model_ids":["gpt-6-luna"],"connection_type":"external","tags":[{"name":"model"}]}}'
       ENABLE_FORWARD_USER_INFO_HEADERS: "true"
       # background tasks (titles, tags, follow-ups) would also spend the user's quota; off for a clean demo
       ENABLE_TITLE_GENERATION: "false"

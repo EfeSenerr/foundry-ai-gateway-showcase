@@ -95,7 +95,7 @@ if (-not (Get-EnvValue $owuiEnv 'WEBUI_SECRET_KEY')) {
 Set-EnvValue $owuiEnv 'MICROSOFT_CLIENT_ID' $app.appId
 Set-EnvValue $owuiEnv 'MICROSOFT_CLIENT_TENANT_ID' $tenantId
 Set-EnvValue $owuiEnv 'MICROSOFT_OAUTH_SCOPE' "openid email profile offline_access api://$ApiAppName/Gateway.Use"
-Set-EnvValue $owuiEnv 'OPENAI_API_BASE_URLS' "$gwUrl/entra/v1"
+Set-EnvValue $owuiEnv 'APIM_GATEWAY_URL' $gwUrl
 
 Write-Host "App $AppName ($($app.appId)) ready; redirect(s): $($OpenWebUiUrls -join ', ')" -ForegroundColor Green
 Write-Host 'Team membership = existing groups sg-portops-team-ops|it|cs (Entra ID > Groups).'

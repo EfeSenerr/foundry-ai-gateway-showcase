@@ -21,10 +21,13 @@ python run_all_smoke.py                    # PASS/FAIL end-to-end check
 
 Optional: **Open WebUI with Entra SSO -> AI Gateway**. The user's own Entra token reaches APIM, which applies per-team/per-user limits and reports per user and app, with no proxy and no shared keys. Architecture options and guidance: [docs/openwebui-entra-gateway.md](docs/openwebui-entra-gateway.md).
 ```powershell
-.\scripts\setup-apim-entra-v1.ps1     # OpenAI v1 API entra/v1 on the existing APIM + named value quota-owui-user (additive)
+.\scripts\setup-apim-entra-v1.ps1     # Open WebUI APIs on the existing APIM: entra/v1 (models) + entra/agents/v1 (Foundry agents via OBO); named values (additive)
 .\scripts\setup-openwebui-entra.ps1   # app reg portops-openwebui (SSO + Gateway.Use), secret -> openwebui\.env (git-ignored)
-docker compose -f openwebui\docker-compose.yml up -d   # http://localhost:3000
+.\scripts\setup-openwebui-agents.ps1  # agents AS THE USER: OBO (federated credential for APIM MI), Foundry User per team project, Team.* roles, demo personas
+docker compose -f openwebui\docker-compose.yml up -d   # http://localhost:3000; sign in once as admin, then:
+.\scripts\setup-openwebui-catalog.ps1 # per-team visibility of raw models, workspace models and Foundry agents (openwebui\catalog.json)
 ```
+Agents (prompt + hosted) in Open WebUI and the multi-user demo: [docs/openwebui-agents.md](docs/openwebui-agents.md). Existing Open WebUI (e.g. with LiteLLM): step by step in [docs/openwebui-existing-setup-guide.md](docs/openwebui-existing-setup-guide.md).
 
 ## Demo commands (run from `demo\`)
 | Demo | Command |
@@ -38,6 +41,7 @@ docker compose -f openwebui\docker-compose.yml up -d   # http://localhost:3000
 | Identity-based limits (Entra) | `python entra_limits_demo.py --user me --burst 5` (users: `ops`/`it`/`cs`/`me`; see [docs/budgets-and-limits.md](docs/budgets-and-limits.md)) |
 | MCP governance through the gateway (team keys, tool allow-list, 403, backend key) | `python mcp_governance_demo.py` (see [docs/mcp-governance.md](docs/mcp-governance.md)) |
 | Open WebUI (Entra SSO) -> per-user quota -> 403 in the chat | `..\scripts\setup-apim-entra-v1.ps1 -UserQuota 100`, chat twice at http://localhost:3000; restore with `-UserQuota 200000` (see [docs/openwebui-entra-gateway.md](docs/openwebui-entra-gateway.md)) |
+| Open WebUI personas (Ops/IT/CS) see different models, workspace models and agents; hosted agent runs as the user | sign in as each persona (see the runbook in [docs/openwebui-agents.md](docs/openwebui-agents.md)) |
 | Observability | `python ..\observability\run_queries.py` (or paste `observability\queries.kql` in Log Analytics) |
 
 Where every metric/visualization lives: [docs/where-to-see-metrics.md](docs/where-to-see-metrics.md). Further reading: [docs/resources.md](docs/resources.md).
@@ -51,12 +55,12 @@ Where every metric/visualization lives: [docs/where-to-see-metrics.md](docs/wher
 ```
 README.md  .env.sample  .gitignore
 infra/          Bicep, APIM policies, pricing/ (shared model price table)
-scripts/        setup-entra.ps1, deploy.ps1, deploy-mcp.ps1, setup-foundry-gateway.ps1, refresh-prices.ps1, setup-apim-entra-v1.ps1, setup-openwebui-entra.ps1, teardown.ps1
+scripts/        setup-entra.ps1, deploy.ps1, deploy-mcp.ps1, setup-foundry-gateway.ps1, refresh-prices.ps1, setup-apim-entra-v1.ps1, setup-openwebui-entra.ps1, setup-openwebui-agents.ps1, setup-openwebui-catalog.ps1, teardown.ps1
 mcp/             FastMCP server (/mcp, /ops/mcp, /it/mcp, /cs/mcp; reachable only with the APIM-held x-mcp-key), synthetic data, tests
 demo/           CLI agent, Foundry agents, 429/500/routing demos, smoke test
-openwebui/      docker-compose for Open WebUI (Entra SSO, user token -> APIM entra/v1)
+openwebui/      docker-compose + catalog.json for Open WebUI (Entra SSO, user token -> APIM entra/v1 + entra/agents/v1)
 observability/  queries.kql, run_queries.py
-docs/           architecture, budgets-and-limits, mcp-governance, openwebui-entra-gateway, cost-management, where-to-see-metrics, litellm-vs-apim, litellm-azure-integration, vnet-target, resources
+docs/           architecture, budgets-and-limits, mcp-governance, openwebui-entra-gateway, openwebui-agents, openwebui-existing-setup-guide, cost-management, where-to-see-metrics, litellm-vs-apim, litellm-azure-integration, vnet-target, resources
 ```
 
 ## Workshop UI (Streamlit)

@@ -143,6 +143,7 @@ Sign in with a user who is a member of `sg-portops-team-*`. To remove: `.\script
 | Open WebUI | `OPENAI_API_CONFIGS` with `auth_type: "system_oauth"` and `model_ids` | forward the user's token; a static model list avoids a `/models` call without a user |
 | Open WebUI | `OAUTH_EMAIL_CLAIM=preferred_username` | some users have no `email` claim |
 | Open WebUI | title/tag/follow-up generation off | background tasks would also spend the user's quota |
+| Open WebUI | gpt-6-* on a separate connection with `api_type: "responses"` (APIM `entra/v1` also has `POST /responses`) | reasoning models reject function tools + reasoning on `/chat/completions`; Open WebUI v0.13 sends built-in tools |
 | APIM | [`infra/policies/openai-entra-v1-policy.xml`](../infra/policies/openai-entra-v1-policy.xml) | OpenAI v1 facade that shares the team counters with `/entra/openai`, plus its own user counter and model allow-list |
 | Entra | [`scripts/setup-openwebui-entra.ps1`](../scripts/setup-openwebui-entra.ps1) | web app, redirect `<url>/oauth/microsoft/callback`, delegated `Gateway.Use`, admin consent |
 
@@ -180,6 +181,8 @@ AppMetrics
 
 ## Related
 
+- [openwebui-existing-setup-guide](openwebui-existing-setup-guide.md): step by step for an **existing** Open WebUI (e.g. with LiteLLM), side by side and with a migration path
+- [openwebui-agents](openwebui-agents.md): Foundry prompt + **hosted** agents in Open WebUI, invoked **as the user** (OBO), per-team visibility of models/workspace models/agents, live multi-user runbook
 - [budgets-and-limits](budgets-and-limits.md): team/user/power-tier limits, € → token quota, € kill switch
 - [litellm-vs-apim](litellm-vs-apim.md), [litellm-azure-integration](litellm-azure-integration.md)
 - Community walkthrough: [Open WebUI on Azure Part 2 – API Management ❤️ AI](https://rios.engineer/open-webui-on-azure-part-2-api-management-ai/) (unofficial)
